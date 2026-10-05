@@ -1,0 +1,31 @@
+# Single source of truth for paths and hyperparameters. Every script reads this file.
+data:
+  geo: GSE267097
+  raw_dir: data/raw
+  processed: data/processed/dataset.h5ad
+  n_top_genes: 2000
+  label_column: response_1m_or_3m      # complete column; response_3m has missing values
+
+model:
+  n_pcs: 50
+  d: 128
+  d_att: 64
+  dropout: 0.3
+
+train:
+  epochs: 60
+  n_sub: 1000          # cells sampled per patient per epoch (augmentation + speed)
+  lr: 0.001
+  weight_decay: 0.0001
+  n_splits: 5
+  n_repeats: 5
+  seed: 0
+
+eval:
+  n_boot: 1000
+  n_examples: 3
+
+paths:
+  artifacts: artifacts
+  results: results
+  examples: examples

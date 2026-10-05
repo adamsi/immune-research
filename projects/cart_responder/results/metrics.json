@@ -1,0 +1,29 @@
+{
+  "n_patients": 57,
+  "n_responders": 42,
+  "auc": 0.7079,
+  "ci95": [
+    0.5336,
+    0.866
+  ],
+  "auc_per_repeat": [
+    0.7778,
+    0.719,
+    0.6587,
+    0.6802,
+    0.681
+  ],
+  "config": {
+    "epochs": 60,
+    "n_sub": 1000,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "n_splits": 5,
+    "n_repeats": 5,
+    "seed": 0,
+    "n_pcs": 50,
+    "d": 128,
+    "d_att": 64,
+    "dropout": 0.3
+  }
+}
