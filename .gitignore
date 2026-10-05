@@ -1,0 +1,29 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# data and model outputs (weights live on the Hugging Face Hub)
+data/
+*.h5ad
+artifacts/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.npz
+*.pkl
+*.safetensors
+projects/*/results/*.csv
+
+# python / tooling
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.gradio/
+flagged/
+.DS_Store
+
+# local editor/agent config
+.claude/

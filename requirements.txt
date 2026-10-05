@@ -1,0 +1,2 @@
+# Hugging Face Spaces installs this file; the real list lives next to the app.
+-r app/requirements.txt
