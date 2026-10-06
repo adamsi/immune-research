@@ -150,4 +150,5 @@ with gr.Blocks(title="Immune Research") as demo:
     gr.HTML(FOOT)
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, theme=THEME, allowed_paths=[cart.EX], server_name="0.0.0.0")
+    demo.launch(css=CSS, theme=THEME, allowed_paths=[cart.EX], server_name="0.0.0.0",
+                server_port=int(os.environ.get("PORT", 7860)))  # Render sets PORT

@@ -1,0 +1,11 @@
+# Render blueprint: free web service running the same Gradio app as the Hugging Face Space.
+services:
+  - type: web
+    name: immune-research
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app/app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"

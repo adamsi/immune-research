@@ -1,7 +1,7 @@
 """CAR-T Responder demo tab: upload a patient's single-cell counts, get P(response) and attention by cell type.
 
-Artifacts (model.npz, pca.pkl, genes.txt) are committed in projects/cart_responder/artifacts/. If they are
-missing, they are downloaded from the Hugging Face model repo named by CART_MODEL_REPO.
+Artifacts (model.npz, pca.pkl, genes.txt) are downloaded from the Hugging Face model repo named by
+CART_MODEL_REPO. A local projects/cart_responder/artifacts/ folder (training output) takes precedence.
 """
 import os
 import pickle
