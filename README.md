@@ -1,5 +1,5 @@
 ---
-title: AIMMUNE Research
+title: Immune Research
 emoji: 🧬
 colorFrom: indigo
 colorTo: purple
@@ -12,15 +12,15 @@ license: mit
 short_description: Single-cell immunology ML projects in one demo hub
 ---
 
-# AIMMUNE Research
+# Immune Research
 
 Machine learning on single-cell immune data. One repo, one Gradio app, one Hugging Face Space.
 
 | project | status | folder |
 |---|---|---|
 | 🧬 CAR-T Responder: predict CD19 CAR-T response from pre-treatment blood scRNA-seq | live demo | [`projects/cart_responder`](projects/cart_responder) |
-| 🦋 PBMC SLE Classification: lupus vs healthy from PBMC scRNA-seq | planned | [`projects/pbmc_sle_classification`](projects/pbmc_sle_classification) |
-| 🌐 Foundation Model | planned | |
+
+More projects are in progress.
 
 ## Layout
 
@@ -66,5 +66,5 @@ Spaces need PRO). `app/app.py` registers one no-op `@spaces.GPU` function so Zer
 CAR-T inference is numpy on CPU and uses no GPU quota. Locally `spaces` is optional.
 
 Every push to `main` runs `.github/workflows/sync_to_hf.yml`, which uploads the repo to the Space
-`AdamSion74/aimmune-research` with `hf upload` (override with an `HF_SPACE` repository variable). It needs a
+`AdamSion74/immune-research` with `hf upload` (override with an `HF_SPACE` repository variable). It needs a
 Hugging Face write token stored as the `HF_TOKEN` repository secret; without it the job is skipped.

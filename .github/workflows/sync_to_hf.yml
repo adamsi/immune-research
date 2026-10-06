@@ -1,5 +1,5 @@
 # Mirror main to the Hugging Face Space. Needs the HF_TOKEN repo secret (a write token).
-# The Space id defaults to AdamSion74/aimmune-research; override with the HF_SPACE repo variable.
+# The Space id defaults to AdamSion74/immune-research; override with the HF_SPACE repo variable.
 # Uses `hf upload` rather than `git push` because the Hub rejects binary files (model.npz, pca.pkl) sent with plain git.
 name: Sync to Hugging Face Space
 
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      HF_SPACE: ${{ vars.HF_SPACE || 'AdamSion74/aimmune-research' }}
+      HF_SPACE: ${{ vars.HF_SPACE || 'AdamSion74/immune-research' }}
     steps:
       - uses: actions/checkout@v4
       - name: Upload to Space
