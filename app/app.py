@@ -16,6 +16,18 @@ import gradio as gr  # noqa: E402
 
 from projects.cart_responder import demo as cart  # noqa: E402
 
+try:
+    import spaces  # Hugging Face ZeroGPU runtime; absent locally
+except ImportError:
+    spaces = None
+
+if spaces is not None:
+    @spaces.GPU(duration=10)
+    def _zerogpu_probe():
+        """ZeroGPU Spaces need at least one @spaces.GPU function to start. CAR-T inference is
+        numpy on CPU and never calls this, so the app uses no GPU quota."""
+        return None
+
 PROJECTS = [
     {"id": "cart", "icon": "🧬", "title": "CAR-T Responder", "status": "Live demo", "cta": "Open demo →",
      "blurb": "Predict response to CD19 CAR-T therapy from a pre-treatment blood single-cell sample, "

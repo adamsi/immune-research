@@ -5,7 +5,7 @@ colorFrom: indigo
 colorTo: purple
 sdk: gradio
 sdk_version: 6.29.1
-python_version: "3.12"
+python_version: "3.12.12"
 app_file: app/app.py
 pinned: false
 license: mit
@@ -47,10 +47,10 @@ cp .env.example .env    # optional: HF_TOKEN for a private model repo, CART_MODE
 
 ## Model weights
 
-Weights are never committed. The CAR-T tab uses `projects/cart_responder/artifacts/` if it exists
-(local training output), otherwise downloads `model.npz`, `pca.pkl` and `genes.txt` with
-`hf_hub_download` from the model repo in `CART_MODEL_REPO` (default `AdamSion74/cart-responder-model`).
-To publish trained weights:
+The CAR-T inference artifacts are small (`model.npz`, `pca.pkl`, `genes.txt`, about 0.5 MB) and are
+committed in `projects/cart_responder/artifacts/`; everything else there (`model.pt`, checkpoints) stays
+git-ignored. If those files are missing, the app downloads them with `hf_hub_download` from the model
+repo in `CART_MODEL_REPO` (default `AdamSion74/cart-responder-model`). To publish weights there instead:
 
 ```bash
 hf upload AdamSion74/cart-responder-model projects/cart_responder/artifacts . --repo-type model
@@ -61,6 +61,10 @@ If the repo is private, add `HF_TOKEN` as a Space secret.
 
 ## Deploy
 
-Every push to `main` runs `.github/workflows/sync_to_hf.yml`, which pushes the repo to the Space
-`AdamSion74/aimmune-research` (override with an `HF_SPACE` repository variable). It needs a
+The Space runs on **ZeroGPU**, the free Gradio hosting for personal Hugging Face accounts (CPU Gradio
+Spaces need PRO). `app/app.py` registers one no-op `@spaces.GPU` function so ZeroGPU starts the app;
+CAR-T inference is numpy on CPU and uses no GPU quota. Locally `spaces` is optional.
+
+Every push to `main` runs `.github/workflows/sync_to_hf.yml`, which uploads the repo to the Space
+`AdamSion74/aimmune-research` with `hf upload` (override with an `HF_SPACE` repository variable). It needs a
 Hugging Face write token stored as the `HF_TOKEN` repository secret; without it the job is skipped.

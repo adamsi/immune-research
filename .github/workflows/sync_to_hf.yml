@@ -1,5 +1,6 @@
 # Mirror main to the Hugging Face Space. Needs the HF_TOKEN repo secret (a write token).
 # The Space id defaults to AdamSion74/aimmune-research; override with the HF_SPACE repo variable.
+# Uses `hf upload` rather than `git push` because the Hub rejects binary files (model.npz, pca.pkl) sent with plain git.
 name: Sync to Hugging Face Space
 
 on:
@@ -15,14 +16,14 @@ jobs:
       HF_SPACE: ${{ vars.HF_SPACE || 'AdamSion74/aimmune-research' }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          lfs: true
-      - name: Push to Space
+      - name: Upload to Space
         run: |
           if [ -z "$HF_TOKEN" ]; then
             echo "::warning::HF_TOKEN secret is not set; skipping the Space sync."
             exit 0
           fi
-          HF_USER="${HF_SPACE%%/*}"
-          git push --force "https://${HF_USER}:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" HEAD:main
+          pip install -q "huggingface_hub>=1.0"
+          hf upload "$HF_SPACE" . . --repo-type space \
+            --exclude ".git/*" ".github/*" \
+            --delete "*" \
+            --commit-message "Sync from GitHub ${GITHUB_SHA::7}"
