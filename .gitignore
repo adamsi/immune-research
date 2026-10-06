@@ -7,12 +7,6 @@
 data/
 *.h5ad
 artifacts/
-# exception: the small CAR-T inference artifacts (~0.5 MB) ship with the app
-!projects/cart_responder/artifacts/
-projects/cart_responder/artifacts/*
-!projects/cart_responder/artifacts/model.npz
-!projects/cart_responder/artifacts/pca.pkl
-!projects/cart_responder/artifacts/genes.txt
 checkpoints/
 *.pt
 *.pth
@@ -33,3 +27,10 @@ flagged/
 
 # local editor/agent config
 .claude/
+
+# exception (keep last so it wins over *.npz / *.pkl): the small CAR-T inference artifacts (~0.5 MB) ship with the app
+!projects/cart_responder/artifacts/
+projects/cart_responder/artifacts/*
+!projects/cart_responder/artifacts/model.npz
+!projects/cart_responder/artifacts/pca.pkl
+!projects/cart_responder/artifacts/genes.txt
