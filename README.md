@@ -5,7 +5,7 @@ colorFrom: indigo
 colorTo: purple
 sdk: gradio
 sdk_version: 6.29.1
-python_version: "3.12.12"
+python_version: "3.12"
 app_file: app/app.py
 pinned: false
 license: mit
@@ -61,9 +61,7 @@ If the repo is private, add `HF_TOKEN` as a Space secret.
 
 ## Deploy
 
-The Space runs on **ZeroGPU**, the free Gradio hosting for personal Hugging Face accounts (CPU Gradio
-Spaces need PRO). `app/app.py` registers one no-op `@spaces.GPU` function so ZeroGPU starts the app;
-CAR-T inference is numpy on CPU and uses no GPU quota. Locally `spaces` is optional.
+The Space runs on the CPU basic hardware (Gradio Spaces on CPU need a Hugging Face PRO account).
 
 Every push to `main` runs `.github/workflows/sync_to_hf.yml`, which uploads the repo to the Space
 `AdamSion74/immune-research` with `hf upload` (override with an `HF_SPACE` repository variable). It needs a

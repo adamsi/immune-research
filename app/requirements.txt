@@ -5,4 +5,3 @@ pandas>=2.2
 numpy>=1.26
 huggingface_hub>=0.30
 python-dotenv>=1.0
-spaces                  # ZeroGPU runtime on Hugging Face; a no-op elsewhere
