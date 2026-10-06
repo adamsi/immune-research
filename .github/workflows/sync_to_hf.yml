@@ -23,7 +23,11 @@ jobs:
             exit 0
           fi
           pip install -q "huggingface_hub>=1.0"
+          if ! python -c "import os, sys; from huggingface_hub import repo_exists; sys.exit(0 if repo_exists(os.environ['HF_SPACE'], repo_type='space') else 1)"; then
+            echo "::warning::Space $HF_SPACE does not exist yet; create it (Gradio, ZeroGPU) and re-run this workflow."
+            exit 0
+          fi
           hf upload "$HF_SPACE" . . --repo-type space \
-            --exclude ".git/*" ".github/*" \
+            --exclude ".git/*" --exclude ".github/*" \
             --delete "*" \
             --commit-message "Sync from GitHub ${GITHUB_SHA::7}"
