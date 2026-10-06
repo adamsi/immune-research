@@ -26,22 +26,19 @@ PROJECTS = [
 ]
 
 SLE_STEPS = [
-    ("Data", "Perez et al. 2022 (<i>Science</i>) lupus PBMC atlas, downloaded from CELLxGENE."),
-    ("QC", "scanpy quality control, normalisation and highly variable genes."),
-    ("Batch effects", "Check batch, cohort and processing-date effects stratified by condition, "
-                      "then remove them (scVI with <code>batch_key</code>, or Harmony)."),
-    ("Latent space", "scVI embedding (unsupervised); cell-type labels from CellTypist (or Azimuth)."),
-    ("Baseline", "Pseudobulk per patient and cell type, then logistic regression."),
-    ("Attention-MIL", "Each patient is a bag of cells, shared with the CAR-T project."),
-    ("Evaluation", "Patient-split cross-validation, reported as AUROC."),
-    ("Insights", "Attention by cell type plus pseudobulk differential expression."),
+    ("Data", "Perez et al. 2022 (<i>Science</i>) lupus PBMC atlas from CELLxGENE."),
+    ("Preprocessing", "QC filtering, normalisation and highly variable genes; batch-effect stratification "
+                      "and removal (scVI <code>batch_key</code>, or Harmony)."),
+    ("Representation", "scVI latent space, CellTypist cell types and a UMAP atlas."),
+    ("Models", "Pseudobulk logistic-regression baseline vs attention-MIL, donor-split CV, AUROC."),
+    ("Insights", "Attention per cell type and pseudobulk differential expression."),
 ]
 
 SLE_PLAN = """
 <div class="page-head"><h2>🧬 PBMC SLE Classification</h2>
 <p>Patient-level lupus classification from blood single-cell RNA-seq. <span class="pill soon">Coming soon</span></p></div>
 <ol class="stepper">""" + "".join(
-    f"<li><span class='n'>Step {i}</span><b>{t}</b><p>{d}</p></li>" for i, (t, d) in enumerate(SLE_STEPS, 1)
+    f"<li><b>Step {i} · {t}</b><p>{d}</p></li>" for i, (t, d) in enumerate(SLE_STEPS, 1)
 ) + "</ol>"
 
 FM_TEXT = """
@@ -82,13 +79,12 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .page-head { padding: clamp(18px, 4vw, 30px) 0 clamp(14px, 2.5vw, 22px); }
 .page-head h2 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.15; }
 .page-head p  { font-size: clamp(17px, 2.3vw, 20px); color: var(--body-text-color-subdued); margin: 0; max-width: 760px; line-height: 1.55; }
-/* SLE plan: a single column of step cards, the step label inside each card */
-.stepper { list-style: none; padding: 0; margin: 0; max-width: 760px; display: grid; gap: 12px; }
-.stepper li { padding: 16px 20px; border-radius: 14px; border: 1px solid var(--border-color-primary);
-              background: var(--block-background-fill); }
-.stepper .n { display: block; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
-              color: var(--primary-600); }
-.stepper b { display: block; font-size: 19px; margin: 4px 0; }
+/* SLE plan: responsive grid of step cards */
+.stepper { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px;
+           grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.stepper li { padding: 18px 20px; border-radius: 14px; border: 1px solid var(--border-color-primary);
+              background: var(--block-background-fill); min-width: 0; }
+.stepper b { display: block; font-size: 19px; margin: 0 0 6px; }
 .stepper p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--body-text-color-subdued); overflow-wrap: anywhere; }
 .fmt { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.6; }
 
@@ -152,7 +148,7 @@ def _card_html(p: dict) -> str:
 
 with gr.Blocks(title="Immune Research") as demo:
     with gr.Tabs() as tabs:
-        with gr.Tab("🧬 Home", id="home"):
+        with gr.Tab("Home", id="home"):
             gr.HTML("""<div id="hero"><h1>Immune Research</h1>
               <p>Machine learning on single-cell immune data.</p></div>""")
             with gr.Row(elem_classes="cards"):
