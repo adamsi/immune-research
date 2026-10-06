@@ -37,9 +37,9 @@ SLE_STEPS = [
 SLE_PLAN = """
 <div class="page-head"><h2>🧬 PBMC SLE Classification</h2>
 <p>Patient-level lupus classification from blood single-cell RNA-seq. <span class="pill soon">Coming soon</span></p></div>
-<ol class="stepper">""" + "".join(
-    f"<li><b>Step {i} · {t}</b><p>{d}</p></li>" for i, (t, d) in enumerate(SLE_STEPS, 1)
-) + "</ol>"
+<div class="stepper">""" + "".join(
+    f"<div class='step-card'><b>Step {i} · {t}</b><p>{d}</p></div>" for i, (t, d) in enumerate(SLE_STEPS, 1)
+) + "</div>"
 
 FM_TEXT = """
 <div class="page-head"><h2>🌐 Foundation Model</h2>
@@ -80,9 +80,9 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .page-head h2 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.15; }
 .page-head p  { font-size: clamp(17px, 2.3vw, 20px); color: var(--body-text-color-subdued); margin: 0; max-width: 760px; line-height: 1.55; }
 /* SLE plan: responsive grid of step cards */
-.stepper { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px;
+.stepper { display: grid; gap: 14px;
            grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
-.stepper li { padding: 18px 20px; border-radius: 14px; border: 1px solid var(--border-color-primary);
+.stepper .step-card { padding: 18px 20px; border-radius: 14px; border: 1px solid var(--border-color-primary);
               background: var(--block-background-fill); min-width: 0; }
 .stepper b { display: block; font-size: 19px; margin: 0 0 6px; }
 .stepper p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--body-text-color-subdued); overflow-wrap: anywhere; }
