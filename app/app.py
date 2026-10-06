@@ -17,11 +17,11 @@ import gradio as gr  # noqa: E402
 from projects.cart_responder import demo as cart  # noqa: E402
 
 PROJECTS = [
-    {"id": "cart", "icon": "🧬", "title": "CAR-T Responder", "status": "Live demo", "cta": "Open demo →",
+    {"id": "cart-responder", "icon": "🧬", "title": "CAR-T Responder", "status": "Live demo", "cta": "Open demo →",
      "blurb": "Predict CAR-T response from blood cells."},
-    {"id": "sle", "icon": "🧬", "title": "PBMC SLE", "status": "Coming soon", "cta": "View plan →",
+    {"id": "pbmc-sle", "icon": "🧬", "title": "PBMC SLE", "status": "Coming soon", "cta": "View plan →",
      "blurb": "Lupus classification from PBMC single-cell data."},
-    {"id": "fm", "icon": "🌐", "title": "Foundation Model", "status": "Coming soon", "cta": "Learn more →",
+    {"id": "foundation-model", "icon": "🌐", "title": "Foundation Model", "status": "Coming soon", "cta": "Learn more →",
      "blurb": "A pretrained single-cell model for immunology."},
 ]
 
@@ -146,6 +146,32 @@ def _card_html(p: dict) -> str:
             f"</div><span class='go'>›</span></div>")
 
 
+TABS = ("home", "cart-responder", "pbmc-sle", "foundation-model")
+
+
+def _url_js(slug: str) -> str:
+    """Client-side: put ?tab=<slug> in the address bar so the current tab can be shared as a link."""
+    return ("() => { const u = new URL(window.location.href); "
+            f"if ('{slug}' === 'home') u.searchParams.delete('tab'); else u.searchParams.set('tab', '{slug}'); "
+            "history.replaceState(null, '', u); }")
+
+
+# After any tab switch, read the active tab's label and mirror it in ?tab= (Home clears it).
+SYNC_URL_JS = """() => setTimeout(() => {
+  const slugs = {"CAR-T Responder": "cart-responder", "PBMC SLE": "pbmc-sle", "Foundation Model": "foundation-model"};
+  const label = document.querySelector('[role=tab][aria-selected=true]')?.textContent || "";
+  const slug = Object.keys(slugs).find(k => label.includes(k));
+  const u = new URL(window.location.href);
+  if (slug) u.searchParams.set("tab", slugs[slug]); else u.searchParams.delete("tab");
+  history.replaceState(null, "", u);
+}, 0)"""
+
+
+def _tab_from_url(request: gr.Request):
+    slug = request.query_params.get("tab", "home")
+    return gr.Tabs(selected=slug if slug in TABS else "home")
+
+
 with gr.Blocks(title="Immune Research") as demo:
     with gr.Tabs() as tabs:
         with gr.Tab("Home", id="home"):
@@ -155,15 +181,18 @@ with gr.Blocks(title="Immune Research") as demo:
                 for p in PROJECTS:
                     with gr.Column(min_width=260, elem_classes="pcard"):
                         gr.HTML(_card_html(p))
-                        btn = gr.Button(p["cta"], variant="primary" if p["id"] == "cart" else "secondary")
-                        btn.click(lambda tab=p["id"]: gr.Tabs(selected=tab), outputs=tabs)
-        with gr.Tab("🧬 CAR-T Responder", id="cart"):
+                        btn = gr.Button(p["cta"], variant="primary" if p["id"] == "cart-responder" else "secondary")
+                        btn.click(lambda tab=p["id"]: gr.Tabs(selected=tab), outputs=tabs).then(None, js=_url_js(p["id"]))
+        with gr.Tab("🧬 CAR-T Responder", id="cart-responder"):
             cart.build()
-        with gr.Tab("🧬 PBMC SLE", id="sle"):
+        with gr.Tab("🧬 PBMC SLE", id="pbmc-sle"):
             gr.HTML(SLE_PLAN)
-        with gr.Tab("🌐 Foundation Model", id="fm"):
+        with gr.Tab("🌐 Foundation Model", id="foundation-model"):
             gr.HTML(FM_TEXT)
     gr.HTML(FOOT)
+
+    tabs.select(None, js=SYNC_URL_JS)
+    demo.load(_tab_from_url, outputs=tabs)  # deep links: ?tab=pbmc-sle opens that tab
 
 if __name__ == "__main__":
     demo.launch(css=CSS, theme=THEME, allowed_paths=[cart.EX], server_name="0.0.0.0")
