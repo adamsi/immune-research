@@ -20,9 +20,30 @@ PROJECTS = [
     {"id": "cart", "icon": "🧬", "title": "CAR-T Responder", "status": "Live demo", "cta": "Open demo →",
      "blurb": "Predict response to CD19 CAR-T therapy from a pre-treatment blood single-cell sample, "
               "with attention showing which immune cells mattered."},
-    {"id": "more", "icon": "🔭", "title": "More projects", "status": "Coming soon", "cta": None,
-     "blurb": "New single-cell immunology projects are in progress and will appear here."},
+    {"id": "sle", "icon": "🦋", "title": "PBMC SLE Classification", "status": "Coming soon", "cta": "View plan →",
+     "blurb": "Classify lupus patients from healthy donors using PBMC single-cell RNA-seq, "
+              "and find the cell states that separate them."},
+    {"id": "fm", "icon": "🌐", "title": "Foundation Model", "status": "Coming soon", "cta": "Learn more →",
+     "blurb": "A pretrained single-cell immune foundation model to power every downstream task in this hub."},
 ]
+
+SLE_PLAN = """
+<div class="page-head"><h2>🦋 PBMC SLE Classification</h2>
+<p>Patient-level lupus classification from blood single-cell RNA-seq. <span class="pill soon">Coming soon</span></p></div>
+<ol class="plan">
+  <li><b>Data</b><span>Perez et al. 2022 (<i>Science</i>) lupus PBMC atlas, downloaded from CELLxGENE.</span></li>
+  <li><b>QC</b><span>scanpy quality control, normalisation and highly variable genes.</span></li>
+  <li><b>Latent space</b><span>scANVI embedding and harmonised cell-type labels.</span></li>
+  <li><b>Baseline</b><span>Pseudobulk per patient and cell type, then logistic regression.</span></li>
+  <li><b>Attention-MIL</b><span>Each patient is a bag of cells, shared with the CAR-T project.</span></li>
+  <li><b>Evaluation</b><span>Patient-split cross-validation, reported as AUROC.</span></li>
+  <li><b>Insights</b><span>Attention by cell type plus pseudobulk differential expression.</span></li>
+</ol>"""
+
+FM_TEXT = """
+<div class="page-head"><h2>🌐 Foundation Model</h2>
+<p>A single-cell foundation model for immunology, pretrained once and fine-tuned for each project here.
+<span class="pill soon">Coming soon</span></p></div>"""
 
 FOOT = "<div id='foot'>Immune Research · single-cell immunology and machine learning · for research use only</div>"
 
@@ -50,6 +71,18 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .pill.live { color: #15803d; background: #dcfce7; }
 .pill.soon { color: var(--body-text-color-subdued); background: var(--border-color-primary); }
 .pcard button { font-size: 17px !important; min-height: 50px; margin-top: auto; }
+
+/* project pages */
+.page-head { padding: clamp(18px, 4vw, 30px) 0 clamp(14px, 2.5vw, 22px); }
+.page-head h2 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.15; }
+.page-head p  { font-size: clamp(17px, 2.3vw, 20px); color: var(--body-text-color-subdued); margin: 0; max-width: 760px; line-height: 1.55; }
+.plan { list-style: none; counter-reset: s; padding: 0; margin: 0; display: grid; gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.plan li { counter-increment: s; padding: 20px; border-radius: 14px; border: 1px solid var(--border-color-primary);
+           background: var(--block-background-fill); }
+.plan li::before { content: "STEP " counter(s); display: block; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--primary-600); }
+.plan b { display: block; font-size: 19px; margin: 6px 0; }
+.plan span { font-size: 16px; line-height: 1.55; color: var(--body-text-color-subdued); }
 
 /* CAR-T demo */
 .section { font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--body-text-color-subdued); margin: 4px 0 2px; }
@@ -100,17 +133,20 @@ with gr.Blocks(title="Immune Research") as demo:
         with gr.Tab("🏠 Home", id="home"):
             gr.HTML("""<div id="hero"><div class="tag">🔬 Research hub</div>
               <h1>Immune Research</h1>
-              <p>Machine learning on single-cell immune data: predicting therapy response
+              <p>Machine learning on single-cell immune data: predicting therapy response and disease
                  from the cells in a blood sample.</p></div>""")
             with gr.Row(elem_classes="cards"):
                 for p in PROJECTS:
                     with gr.Column(min_width=280, elem_classes="pcard"):
                         gr.HTML(_card_html(p))
-                        if p["cta"]:
-                            btn = gr.Button(p["cta"], variant="primary")
-                            btn.click(lambda tab=p["id"]: gr.Tabs(selected=tab), outputs=tabs)
+                        btn = gr.Button(p["cta"], variant="primary" if p["id"] == "cart" else "secondary")
+                        btn.click(lambda tab=p["id"]: gr.Tabs(selected=tab), outputs=tabs)
         with gr.Tab("🧬 CAR-T Responder", id="cart"):
             cart.build()
+        with gr.Tab("🦋 PBMC SLE", id="sle"):
+            gr.HTML(SLE_PLAN)
+        with gr.Tab("🌐 Foundation Model", id="fm"):
+            gr.HTML(FM_TEXT)
     gr.HTML(FOOT)
 
 if __name__ == "__main__":

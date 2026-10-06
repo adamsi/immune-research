@@ -28,6 +28,6 @@ jobs:
             exit 0
           fi
           hf upload "$HF_SPACE" . . --repo-type space \
-            --exclude ".git/*" --exclude ".github/*" --exclude "projects/pbmc_sle_classification/*" \
+            --exclude ".git/*" --exclude ".github/*" \
             --delete "*" \
             --commit-message "Sync from GitHub ${GITHUB_SHA::7}"
