@@ -106,7 +106,7 @@ def predict(file):
     return card, plot_df, top_df
 
 
-IDLE = "<div class='card'><div class='idle'>🤖 Choose an example patient or upload a file to see a prediction.</div></div>"
+IDLE = "<div class='card'><div class='idle'>Pick an example or upload a CSV.</div></div>"
 
 HOW = """
 <p class="note" style="margin-top:0">
@@ -129,11 +129,17 @@ HOW = """
 <p class="note muted">⚠️ For research use only. Not a medical device and not intended for clinical decisions.</p>"""
 
 FORMAT = """
-<p class="note" style="margin-top:0">
-  CSV with one row per cell. The first column is the cell id and the remaining columns are gene names with raw counts,
-  matching the model's <code>genes.txt</code>. Two optional columns: <code>cell_type</code> enables the attention chart,
-  and <code>total_counts</code> gives exact per-cell normalisation.
-</p>"""
+<ul class="fmt">
+  <li>One row per cell; first column is the cell id.</li>
+  <li>Other columns: gene names with raw counts (the model's <code>genes.txt</code>).</li>
+  <li>Optional <code>cell_type</code> (enables the attention chart) and <code>total_counts</code>.</li>
+</ul>"""
+
+
+def _example_label(path_: str) -> str:
+    name = os.path.basename(path_).removesuffix(".csv")
+    patient, _, label = name.partition("_")
+    return f"{patient} · {label.replace('_', '-')}"
 
 
 def _diagram() -> str:
@@ -146,28 +152,27 @@ def _diagram() -> str:
 
 def build() -> None:
     """Render the CAR-T tab contents inside the current gr.Blocks context."""
-    gr.HTML("""<div class="page-head"><h2>🧬 CAR-T Responder Classifier</h2>
-      <p>Predicts whether a lymphoma patient will respond to CD19 CAR-T therapy from a pre-treatment
-      blood single-cell sample, and shows which immune cells drove the prediction.</p></div>""")
+    gr.HTML("""<div class="page-head"><h2>🧬 CAR-T Responder</h2>
+      <p>Predict CD19 CAR-T response from a pre-treatment blood sample, and see which cells drove it.</p></div>""")
     if LOAD_ERROR:
         gr.HTML(f"<div class='banner'>Model weights could not be loaded from <code>{MODEL_REPO}</code>. "
                 "Predictions are disabled until they are uploaded (see the README).</div>")
     with gr.Row(equal_height=False):
-        with gr.Column(scale=5, min_width=300):
-            gr.HTML("<div class='section'>🩸 1. Patient</div>")
-            file_in = gr.File(label="Upload single-cell CSV", file_types=[".csv"], height=110)
+        with gr.Column(scale=5, min_width=280):
+            gr.HTML("<div class='section'>1 · Patient</div>")
+            file_in = gr.File(label="Patient CSV", file_types=[".csv"], height=100)
             if EXAMPLES:
-                gr.Examples(examples=[[e] for e in EXAMPLES], inputs=file_in, label="👇 Example patients",
-                            example_labels=[os.path.basename(e).replace(".csv", "").replace("_", " ") for e in EXAMPLES])
-            run = gr.Button("🚀 Predict response", variant="primary", size="lg")
-            with gr.Accordion("📄 Expected file format", open=False):
+                gr.Examples(examples=[[e] for e in EXAMPLES], inputs=file_in, label="Examples",
+                            example_labels=[_example_label(e) for e in EXAMPLES])
+            run = gr.Button("Predict", variant="primary", size="lg")
+            with gr.Accordion("File format", open=False):
                 gr.HTML(FORMAT)
-        with gr.Column(scale=7, min_width=300):
-            gr.HTML("<div class='section'>🎯 2. Result</div>")
+        with gr.Column(scale=7, min_width=280):
+            gr.HTML("<div class='section'>2 · Result</div>")
             card = gr.HTML(IDLE)
-            plot = gr.BarPlot(x="cell type", y="attention share (%)", label="🔍 Attention by cell type", sort="-y",
-                              x_label_angle=-35, height=380)
-            top = gr.Dataframe(label="🏅 Ten most influential cells", interactive=False, wrap=True)
+            plot = gr.BarPlot(x="cell type", y="attention share (%)", label="Attention by cell type", sort="-y",
+                              x_label_angle=-35, height=360)
+            top = gr.Dataframe(label="Top 10 cells", interactive=False, wrap=True)
     with gr.Accordion("🧠 How the model works", open=True):
         gr.HTML(_diagram() + HOW)
 

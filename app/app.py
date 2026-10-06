@@ -19,24 +19,30 @@ from projects.cart_responder import demo as cart  # noqa: E402
 PROJECTS = [
     {"id": "cart", "icon": "🧬", "title": "CAR-T Responder", "status": "Live demo", "cta": "Open demo →",
      "blurb": "Predict CAR-T response from blood cells."},
-    {"id": "sle", "icon": "🦋", "title": "PBMC SLE", "status": "Coming soon", "cta": "View plan →",
+    {"id": "sle", "icon": "🧬", "title": "PBMC SLE", "status": "Coming soon", "cta": "View plan →",
      "blurb": "Lupus classification from PBMC single-cell data."},
     {"id": "fm", "icon": "🌐", "title": "Foundation Model", "status": "Coming soon", "cta": "Learn more →",
      "blurb": "A pretrained single-cell model for immunology."},
 ]
 
+SLE_STEPS = [
+    ("Data", "Perez et al. 2022 (<i>Science</i>) lupus PBMC atlas, downloaded from CELLxGENE."),
+    ("QC", "scanpy quality control, normalisation and highly variable genes."),
+    ("Batch effects", "Check batch, cohort and processing-date effects stratified by condition, "
+                      "then remove them (scVI with <code>batch_key</code>, or Harmony)."),
+    ("Latent space", "scVI embedding (unsupervised); cell-type labels from CellTypist (or Azimuth)."),
+    ("Baseline", "Pseudobulk per patient and cell type, then logistic regression."),
+    ("Attention-MIL", "Each patient is a bag of cells, shared with the CAR-T project."),
+    ("Evaluation", "Patient-split cross-validation, reported as AUROC."),
+    ("Insights", "Attention by cell type plus pseudobulk differential expression."),
+]
+
 SLE_PLAN = """
-<div class="page-head"><h2>🦋 PBMC SLE Classification</h2>
+<div class="page-head"><h2>🧬 PBMC SLE Classification</h2>
 <p>Patient-level lupus classification from blood single-cell RNA-seq. <span class="pill soon">Coming soon</span></p></div>
-<ol class="plan">
-  <li><b>Data</b><span>Perez et al. 2022 (<i>Science</i>) lupus PBMC atlas, downloaded from CELLxGENE.</span></li>
-  <li><b>QC</b><span>scanpy quality control, normalisation and highly variable genes.</span></li>
-  <li><b>Latent space</b><span>scANVI embedding and harmonised cell-type labels.</span></li>
-  <li><b>Baseline</b><span>Pseudobulk per patient and cell type, then logistic regression.</span></li>
-  <li><b>Attention-MIL</b><span>Each patient is a bag of cells, shared with the CAR-T project.</span></li>
-  <li><b>Evaluation</b><span>Patient-split cross-validation, reported as AUROC.</span></li>
-  <li><b>Insights</b><span>Attention by cell type plus pseudobulk differential expression.</span></li>
-</ol>"""
+<ol class="stepper">""" + "".join(
+    f"<li><span class='num'>{i}</span><div><b>{t}</b><p>{d}</p></div></li>" for i, (t, d) in enumerate(SLE_STEPS, 1)
+) + "</ol>"
 
 FM_TEXT = """
 <div class="page-head"><h2>🌐 Foundation Model</h2>
@@ -76,13 +82,17 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .page-head { padding: clamp(18px, 4vw, 30px) 0 clamp(14px, 2.5vw, 22px); }
 .page-head h2 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.15; }
 .page-head p  { font-size: clamp(17px, 2.3vw, 20px); color: var(--body-text-color-subdued); margin: 0; max-width: 760px; line-height: 1.55; }
-.plan { list-style: none; counter-reset: s; padding: 0; margin: 0; display: grid; gap: 14px;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
-.plan li { counter-increment: s; padding: 20px; border-radius: 14px; border: 1px solid var(--border-color-primary);
-           background: var(--block-background-fill); }
-.plan li::before { content: "STEP " counter(s); display: block; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--primary-600); }
-.plan b { display: block; font-size: 19px; margin: 6px 0; }
-.plan span { font-size: 16px; line-height: 1.55; color: var(--body-text-color-subdued); }
+/* vertical stepper: fixed-size number badge beside wrapping text, joined by a line */
+.stepper { list-style: none; padding: 0; margin: 0; max-width: 760px; }
+.stepper li { position: relative; display: flex; gap: 16px; padding-bottom: 22px; }
+.stepper li:not(:last-child)::after { content: ""; position: absolute; left: 19px; top: 44px; bottom: 4px;
+                                      width: 2px; background: var(--border-color-primary); }
+.stepper .num { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+                font-size: 17px; font-weight: 700; color: var(--primary-700); background: var(--primary-50);
+                border: 2px solid var(--primary-200); }
+.stepper b { display: block; font-size: 19px; margin: 7px 0 4px; }
+.stepper p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--body-text-color-subdued); overflow-wrap: anywhere; }
+.fmt { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.6; }
 
 /* CAR-T demo */
 .section { font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--body-text-color-subdued); margin: 4px 0 2px; }
@@ -144,7 +154,7 @@ def _card_html(p: dict) -> str:
 
 with gr.Blocks(title="Immune Research") as demo:
     with gr.Tabs() as tabs:
-        with gr.Tab("🏠 Home", id="home"):
+        with gr.Tab("🧬 Home", id="home"):
             gr.HTML("""<div id="hero"><h1>Immune Research</h1>
               <p>Machine learning on single-cell immune data.</p></div>""")
             with gr.Row(elem_classes="cards"):
@@ -155,7 +165,7 @@ with gr.Blocks(title="Immune Research") as demo:
                         btn.click(lambda tab=p["id"]: gr.Tabs(selected=tab), outputs=tabs)
         with gr.Tab("🧬 CAR-T Responder", id="cart"):
             cart.build()
-        with gr.Tab("🦋 PBMC SLE", id="sle"):
+        with gr.Tab("🧬 PBMC SLE", id="sle"):
             gr.HTML(SLE_PLAN)
         with gr.Tab("🌐 Foundation Model", id="fm"):
             gr.HTML(FM_TEXT)
