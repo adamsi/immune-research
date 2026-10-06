@@ -41,7 +41,7 @@ SLE_PLAN = """
 <div class="page-head"><h2>🧬 PBMC SLE Classification</h2>
 <p>Patient-level lupus classification from blood single-cell RNA-seq. <span class="pill soon">Coming soon</span></p></div>
 <ol class="stepper">""" + "".join(
-    f"<li><span class='num'>{i}</span><div><b>{t}</b><p>{d}</p></div></li>" for i, (t, d) in enumerate(SLE_STEPS, 1)
+    f"<li><span class='n'>Step {i}</span><b>{t}</b><p>{d}</p></li>" for i, (t, d) in enumerate(SLE_STEPS, 1)
 ) + "</ol>"
 
 FM_TEXT = """
@@ -82,15 +82,13 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .page-head { padding: clamp(18px, 4vw, 30px) 0 clamp(14px, 2.5vw, 22px); }
 .page-head h2 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.15; }
 .page-head p  { font-size: clamp(17px, 2.3vw, 20px); color: var(--body-text-color-subdued); margin: 0; max-width: 760px; line-height: 1.55; }
-/* vertical stepper: fixed-size number badge beside wrapping text, joined by a line */
-.stepper { list-style: none; padding: 0; margin: 0; max-width: 760px; }
-.stepper li { position: relative; display: flex; gap: 16px; padding-bottom: 22px; }
-.stepper li:not(:last-child)::after { content: ""; position: absolute; left: 19px; top: 44px; bottom: 4px;
-                                      width: 2px; background: var(--border-color-primary); }
-.stepper .num { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
-                font-size: 17px; font-weight: 700; color: var(--primary-700); background: var(--primary-50);
-                border: 2px solid var(--primary-200); }
-.stepper b { display: block; font-size: 19px; margin: 7px 0 4px; }
+/* SLE plan: a single column of step cards, the step label inside each card */
+.stepper { list-style: none; padding: 0; margin: 0; max-width: 760px; display: grid; gap: 12px; }
+.stepper li { padding: 16px 20px; border-radius: 14px; border: 1px solid var(--border-color-primary);
+              background: var(--block-background-fill); }
+.stepper .n { display: block; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+              color: var(--primary-600); }
+.stepper b { display: block; font-size: 19px; margin: 4px 0; }
 .stepper p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--body-text-color-subdued); overflow-wrap: anywhere; }
 .fmt { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.6; }
 
