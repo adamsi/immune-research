@@ -30,9 +30,8 @@ python3 -m venv .venv && .venv/bin/pip install -r app/requirements.txt
 
 ## Deploy
 
-- Hugging Face: pushes to `main` sync to the Space `AdamSion74/immune-research` via
-  `.github/workflows/sync_to_hf.yml` (needs the `HF_TOKEN` repo secret).
-- Render (free): `render.yaml` blueprint.
+Pushes to `main` sync to the Space `AdamSion74/immune-research` via `.github/workflows/sync_to_hf.yml`
+(needs the `HF_TOKEN` repo secret).
 
 CAR-T weights are not in git; the app downloads them from the model repo `AdamSion74/cart-responder-model`
 (override with `CART_MODEL_REPO`).

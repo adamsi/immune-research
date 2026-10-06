@@ -18,13 +18,11 @@ from projects.cart_responder import demo as cart  # noqa: E402
 
 PROJECTS = [
     {"id": "cart", "icon": "🧬", "title": "CAR-T Responder", "status": "Live demo", "cta": "Open demo →",
-     "blurb": "Predict response to CD19 CAR-T therapy from a pre-treatment blood single-cell sample, "
-              "with attention showing which immune cells mattered."},
-    {"id": "sle", "icon": "🦋", "title": "PBMC SLE Classification", "status": "Coming soon", "cta": "View plan →",
-     "blurb": "Classify lupus patients from healthy donors using PBMC single-cell RNA-seq, "
-              "and find the cell states that separate them."},
+     "blurb": "Predict CAR-T response from blood cells."},
+    {"id": "sle", "icon": "🦋", "title": "PBMC SLE", "status": "Coming soon", "cta": "View plan →",
+     "blurb": "Lupus classification from PBMC single-cell data."},
     {"id": "fm", "icon": "🌐", "title": "Foundation Model", "status": "Coming soon", "cta": "Learn more →",
-     "blurb": "A pretrained single-cell immune foundation model to power every downstream task in this hub."},
+     "blurb": "A pretrained single-cell model for immunology."},
 ]
 
 SLE_PLAN = """
@@ -49,28 +47,30 @@ FOOT = "<div id='foot'>Immune Research · single-cell immunology and machine lea
 
 CSS = """
 .gradio-container { width: 100% !important; max-width: 1120px !important; margin: 0 auto !important; font-size: 18px; }
-#hero { padding: clamp(28px, 6vw, 56px) 0 clamp(18px, 3vw, 28px); }
-#hero .tag { display: inline-block; font-size: 14px; letter-spacing: .06em; text-transform: uppercase;
-             color: var(--primary-600); background: var(--primary-50); border-radius: 8px; padding: 5px 12px; margin-bottom: 16px; }
-#hero h1 { font-size: clamp(34px, 7vw, 56px); font-weight: 700; letter-spacing: -0.025em; margin: 0 0 12px; line-height: 1.08; }
-#hero p  { font-size: clamp(18px, 2.6vw, 22px); color: var(--body-text-color-subdued); margin: 0; max-width: 760px; line-height: 1.55; }
+#hero { padding: clamp(18px, 4vw, 40px) 0 clamp(14px, 2.5vw, 26px); }
+#hero h1 { font-size: clamp(30px, 6vw, 48px); font-weight: 700; letter-spacing: -0.025em; margin: 0 0 8px; line-height: 1.1; }
+#hero p  { font-size: clamp(17px, 2.4vw, 21px); color: var(--body-text-color-subdued); margin: 0; line-height: 1.45; }
 
 /* tabs: big and thumb-friendly; Gradio folds overflow into its own "..." menu */
 button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12px 16px !important; }
 
-/* project cards */
-.cards { gap: clamp(14px, 2.5vw, 22px) !important; }
-.pcard { border-radius: 18px !important; padding: clamp(20px, 3.5vw, 28px) !important; gap: 14px !important;
+/* project cards: compact so all of them fit on one screen */
+.cards { gap: clamp(12px, 2vw, 20px) !important; }
+.pcard { border-radius: 18px !important; padding: clamp(16px, 2.5vw, 24px) !important; gap: 12px !important;
          border: 1px solid var(--border-color-primary) !important; background: var(--block-background-fill) !important; }
-.pcard .icon { font-size: 44px; line-height: 1; width: 72px; height: 72px; display: grid; place-items: center;
-               border-radius: 18px; background: var(--primary-50); margin-bottom: 14px; }
-.pcard h3 { font-size: clamp(22px, 3vw, 26px); font-weight: 650; margin: 0 0 8px; letter-spacing: -0.01em; }
-.pcard p  { font-size: 17px; line-height: 1.55; color: var(--body-text-color-subdued); margin: 10px 0 0; }
-.pill { display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
-        border-radius: 99px; padding: 4px 11px; vertical-align: middle; }
+.pcard { position: relative; }
+.pcard .head { display: flex; align-items: flex-start; gap: 14px; }
+.pcard .txt { flex: 1; min-width: 0; }
+.pcard .go { display: none; }
+.pcard .icon { font-size: 30px; line-height: 1; width: 54px; height: 54px; flex: none; display: grid; place-items: center;
+               border-radius: 14px; background: var(--primary-50); }
+.pcard h3 { font-size: clamp(19px, 2.4vw, 22px); font-weight: 650; margin: 0; letter-spacing: -0.01em; line-height: 1.3; }
+.pcard p  { font-size: 16px; line-height: 1.45; color: var(--body-text-color-subdued); margin: 6px 0 0; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+        border-radius: 99px; padding: 3px 10px; vertical-align: middle; }
 .pill.live { color: #15803d; background: #dcfce7; }
 .pill.soon { color: var(--body-text-color-subdued); background: var(--border-color-primary); }
-.pcard button { font-size: 17px !important; min-height: 50px; margin-top: auto; }
+.pcard button { font-size: 16px !important; min-height: 46px; margin-top: auto; }
 
 /* project pages */
 .page-head { padding: clamp(18px, 4vw, 30px) 0 clamp(14px, 2.5vw, 22px); }
@@ -110,7 +110,20 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .note.muted { font-size: 15px; color: var(--body-text-color-subdued); }
 
 @media (max-width: 640px) {
-  .pcard { padding: 20px !important; }
+  #hero { padding: 6px 0 4px; }
+  #hero h1 { font-size: 30px; margin-bottom: 4px; }
+  #hero p { font-size: 16px; }
+  .pcard .html-container { padding: 0 !important; }
+  .cards { gap: 10px !important; }
+  .pcard { padding: 14px 16px !important; }
+  .pcard .head { align-items: center; }
+  .pcard .icon { width: 44px; height: 44px; font-size: 24px; border-radius: 12px; }
+  .pcard h3 { font-size: 18px; }
+  .pcard .pill { font-size: 11px; padding: 2px 8px; }
+  .pcard p { font-size: 15px; margin-top: 3px; line-height: 1.4; }
+  .pcard .go { display: block; font-size: 30px; line-height: 1; color: var(--body-text-color-subdued); }
+  /* on phones the whole card is the tap target: stretch the button over it, invisibly */
+  .pcard button { position: absolute !important; inset: 0; opacity: 0; min-height: 0; margin: 0; }
   .card .stats { gap: 18px; }
 }
 
@@ -124,20 +137,19 @@ THEME = gr.themes.Soft(primary_hue="indigo", neutral_hue="slate", font=gr.themes
 
 def _card_html(p: dict) -> str:
     pill = "live" if p["status"] == "Live demo" else "soon"
-    return (f"<div class='icon'>{p['icon']}</div><h3>{p['title']}</h3>"
-            f"<span class='pill {pill}'>{p['status']}</span><p>{p['blurb']}</p>")
+    return (f"<div class='head'><div class='icon'>{p['icon']}</div><div class='txt'>"
+            f"<h3>{p['title']} <span class='pill {pill}'>{p['status']}</span></h3><p>{p['blurb']}</p>"
+            f"</div><span class='go'>›</span></div>")
 
 
 with gr.Blocks(title="Immune Research") as demo:
     with gr.Tabs() as tabs:
         with gr.Tab("🏠 Home", id="home"):
-            gr.HTML("""<div id="hero"><div class="tag">🔬 Research hub</div>
-              <h1>Immune Research</h1>
-              <p>Machine learning on single-cell immune data: predicting therapy response and disease
-                 from the cells in a blood sample.</p></div>""")
+            gr.HTML("""<div id="hero"><h1>Immune Research</h1>
+              <p>Machine learning on single-cell immune data.</p></div>""")
             with gr.Row(elem_classes="cards"):
                 for p in PROJECTS:
-                    with gr.Column(min_width=280, elem_classes="pcard"):
+                    with gr.Column(min_width=260, elem_classes="pcard"):
                         gr.HTML(_card_html(p))
                         btn = gr.Button(p["cta"], variant="primary" if p["id"] == "cart" else "secondary")
                         btn.click(lambda tab=p["id"]: gr.Tabs(selected=tab), outputs=tabs)
@@ -150,5 +162,4 @@ with gr.Blocks(title="Immune Research") as demo:
     gr.HTML(FOOT)
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, theme=THEME, allowed_paths=[cart.EX], server_name="0.0.0.0",
-                server_port=int(os.environ.get("PORT", 7860)))  # Render sets PORT
+    demo.launch(css=CSS, theme=THEME, allowed_paths=[cart.EX], server_name="0.0.0.0")
