@@ -1,7 +1,2 @@
-# Runtime for the Space. No PyTorch: CAR-T inference is numpy.
-gradio>=6,<7
-scikit-learn==1.9.1     # must match the version that pickled the CAR-T pca.pkl
-pandas>=2.2
-numpy>=1.26
-huggingface_hub>=0.30
-python-dotenv>=1.0
+# The app runtime lives in the root requirements.txt (Hugging Face Spaces installs only that file).
+-r ../requirements.txt

@@ -1,2 +1,7 @@
-# Hugging Face Spaces installs this file; the real list lives next to the app.
--r app/requirements.txt
+# Runtime for the app and the Hugging Face Space (which installs only this file). No PyTorch: inference is numpy.
+gradio>=6,<7
+scikit-learn==1.9.1     # must match the version that pickled the CAR-T pca.pkl
+pandas>=2.2
+numpy>=1.26
+huggingface_hub>=0.30
+python-dotenv>=1.0
