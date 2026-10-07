@@ -1,0 +1,319 @@
+{
+ "attention": [
+  {
+   "cell_type": "Classical monocytes",
+   "SLE": 0.7097,
+   "healthy": 0.1272
+  },
+  {
+   "cell_type": "Non-classical monocytes",
+   "SLE": 0.198,
+   "healthy": 0.0225
+  },
+  {
+   "cell_type": "Tcm/Naive helper T cells",
+   "SLE": 0.0542,
+   "healthy": 0.576
+  },
+  {
+   "cell_type": "DC2",
+   "SLE": 0.0109,
+   "healthy": 0.002
+  },
+  {
+   "cell_type": "Naive B cells",
+   "SLE": 0.0099,
+   "healthy": 0.085
+  },
+  {
+   "cell_type": "Tcm/Naive cytotoxic T cells",
+   "SLE": 0.0097,
+   "healthy": 0.1213
+  },
+  {
+   "cell_type": "Memory B cells",
+   "SLE": 0.0026,
+   "healthy": 0.0425
+  },
+  {
+   "cell_type": "CD16+ NK cells",
+   "SLE": 0.0022,
+   "healthy": 0.008
+  }
+ ],
+ "de": [
+  {
+   "cell_type": "Tcm/Naive helper T cells",
+   "n_sig": 1255,
+   "n_up": 643,
+   "n_down": 612,
+   "top_up": [
+    [
+     "IFI27",
+     3.77
+    ],
+    [
+     "ISG15",
+     1.56
+    ],
+    [
+     "IFI44L",
+     2.56
+    ],
+    [
+     "EPSTI1",
+     1.32
+    ],
+    [
+     "LY6E",
+     0.84
+    ],
+    [
+     "IFI6",
+     1.36
+    ],
+    [
+     "MX1",
+     1.62
+    ],
+    [
+     "PSME2",
+     0.51
+    ]
+   ],
+   "top_down": [
+    [
+     "RPL21",
+     -0.4
+    ],
+    [
+     "RPL35A",
+     -0.27
+    ],
+    [
+     "RPL32",
+     -0.26
+    ],
+    [
+     "RPS27A",
+     -0.32
+    ]
+   ]
+  },
+  {
+   "cell_type": "Classical monocytes",
+   "n_sig": 1006,
+   "n_up": 491,
+   "n_down": 515,
+   "top_up": [
+    [
+     "EPSTI1",
+     1.99
+    ],
+    [
+     "IFI27",
+     4.51
+    ],
+    [
+     "IFI6",
+     2.13
+    ],
+    [
+     "ISG15",
+     2.04
+    ],
+    [
+     "IFI44L",
+     2.55
+    ],
+    [
+     "LY6E",
+     1.77
+    ],
+    [
+     "IFITM3",
+     1.9
+    ],
+    [
+     "MT2A",
+     1.46
+    ]
+   ],
+   "top_down": [
+    [
+     "RPS27A",
+     -0.32
+    ],
+    [
+     "RPS8",
+     -0.4
+    ],
+    [
+     "RPL41",
+     -0.22
+    ],
+    [
+     "RPS14",
+     -0.27
+    ]
+   ]
+  },
+  {
+   "cell_type": "Non-classical monocytes",
+   "n_sig": 591,
+   "n_up": 376,
+   "n_down": 215,
+   "top_up": [
+    [
+     "IFI27",
+     5.35
+    ],
+    [
+     "EPSTI1",
+     1.96
+    ],
+    [
+     "IFI6",
+     2.07
+    ],
+    [
+     "ISG15",
+     2.05
+    ],
+    [
+     "APOBEC3A",
+     1.82
+    ],
+    [
+     "IFI44L",
+     2.62
+    ],
+    [
+     "MT2A",
+     1.28
+    ],
+    [
+     "IFI44",
+     2.27
+    ]
+   ],
+   "top_down": [
+    [
+     "RPL3",
+     -0.32
+    ],
+    [
+     "MALAT1",
+     -0.33
+    ],
+    [
+     "RPL21",
+     -0.26
+    ],
+    [
+     "RPS6",
+     -0.28
+    ]
+   ]
+  },
+  {
+   "cell_type": "Naive B cells",
+   "n_sig": 229,
+   "n_up": 163,
+   "n_down": 66,
+   "top_up": [
+    [
+     "IFI44L",
+     2.94
+    ],
+    [
+     "EPSTI1",
+     1.75
+    ],
+    [
+     "XAF1",
+     1.67
+    ],
+    [
+     "EIF2AK2",
+     1.43
+    ],
+    [
+     "IFI6",
+     1.4
+    ],
+    [
+     "ISG15",
+     1.16
+    ],
+    [
+     "SAMD9L",
+     1.16
+    ],
+    [
+     "VPREB3",
+     0.62
+    ]
+   ],
+   "top_down": [
+    [
+     "RPS27A",
+     -0.14
+    ],
+    [
+     "RPL7",
+     -0.17
+    ],
+    [
+     "RPL21",
+     -0.19
+    ],
+    [
+     "MT-CYB",
+     -0.35
+    ]
+   ]
+  }
+ ],
+ "batch_key": "Processing_Cohort",
+ "batches": [
+  {
+   "batch": "1",
+   "SLE": 0,
+   "healthy": 34
+  },
+  {
+   "batch": "2",
+   "SLE": 105,
+   "healthy": 13
+  },
+  {
+   "batch": "3",
+   "SLE": 20,
+   "healthy": 9
+  },
+  {
+   "batch": "4",
+   "SLE": 37,
+   "healthy": 43
+  }
+ ],
+ "ifn": {
+  "genes": [
+   "IFI27",
+   "IFI44L",
+   "ISG15",
+   "MX1",
+   "RSAD2",
+   "IFI6",
+   "EPSTI1",
+   "IFIT1",
+   "IFIT3",
+   "OAS1"
+  ],
+  "auroc": 0.912,
+  "SLE": 0.49,
+  "healthy": -0.81,
+  "note": "label-free, from a second run with the same settings"
+ }
+}

@@ -12,7 +12,7 @@ import pandas as pd
 
 from shared.mil_numpy import load_weights, predict as mil_predict
 from shared.plotting import attention_by_group
-from shared.ui import connect, file_input
+from shared.ui import connect, file_input, github_link
 
 from . import path
 
@@ -153,8 +153,9 @@ def _diagram() -> str:
 
 def build() -> None:
     """Render the CAR-T tab contents inside the current gr.Blocks context."""
-    gr.HTML("""<div class="page-head"><h2>🧬 CAR-T Responder</h2>
-      <p>Predict CD19 CAR-T response from a pre-treatment blood sample, and see which cells drove it.</p></div>""")
+    gr.HTML(f"""<div class="page-head"><h2>🧬 CAR-T Responder</h2>
+      <p>Predict CD19 CAR-T response from a pre-treatment blood sample, and see which cells drove it.</p>
+      {github_link("cart_responder")}</div>""")
     if LOAD_ERROR:
         gr.HTML(f"<div class='banner'>Model weights could not be loaded from <code>{MODEL_REPO}</code>. "
                 "Predictions are disabled until they are uploaded (see the README).</div>")

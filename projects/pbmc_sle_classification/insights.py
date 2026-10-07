@@ -3,8 +3,11 @@
 Input : data/processed/pbmc_rep.h5ad, artifacts/, results/oof_predictions.csv
 Output: results/attention_by_celltype.csv  mean attention share per cell type, SLE vs healthy donors
         results/de_<cell type>.csv          PyDESeq2 SLE vs healthy on pseudobulk counts, most-attended cell types
+        results/summary.json                findings shown in the app (attention, genes, composition, IFN score, batches)
         artifacts/examples/<donor>_<label>.h5ad  a few real donors in the format the app reads
 """
+import glob
+import json
 import os
 import re
 
@@ -17,7 +20,10 @@ from shared.mil_numpy import load_weights, predict as mil_predict
 from shared.plotting import attention_by_group
 
 from . import DEFAULT_CONFIG, path
-from .features import donor_labels, pseudobulk
+from .features import donor_labels, log_cpm, pseudobulk
+
+# type I interferon-stimulated genes, the best-known lupus blood signature
+IFN_GENES = ["IFI27", "IFI44L", "ISG15", "MX1", "RSAD2", "IFI6", "EPSTI1", "IFIT1", "IFIT3", "OAS1"]
 
 
 def attention_table(adata, weights, sle_label: str) -> pd.DataFrame:
@@ -64,6 +70,74 @@ def de_one_celltype(adata, cell_type: str, sle_label: str, batch_key: str | None
     return stats.results_df.sort_values("padj")
 
 
+def write_summary(res: str, adata=None, sle_label: str | None = None) -> dict:
+    """Collect the headline findings into results/summary.json (small, committed, read by the app).
+    Attention, genes and batches come from the CSVs in results/; composition and the interferon
+    score need the cells, so they are added only when adata is given."""
+    from scipy.stats import mannwhitneyu, spearmanr
+    from sklearn.metrics import roc_auc_score
+
+    table = pd.read_csv(os.path.join(res, "attention_by_celltype.csv"), index_col=0)
+    summary = {"attention": [{"cell_type": ct, "SLE": round(float(r["SLE"]), 4), "healthy": round(float(r["healthy"]), 4)}
+                             for ct, r in table.head(8).iterrows()]}
+
+    # differential expression: how many genes change per cell type, and the strongest ones
+    de = []
+    for f in sorted(glob.glob(os.path.join(res, "de_*.csv"))):
+        d = pd.read_csv(f, index_col=0).dropna(subset=["padj"])
+        sig = d[d["padj"] < 0.05]
+        up = sig[sig["log2FoldChange"] > 0].sort_values("padj")
+        down = sig[sig["log2FoldChange"] < 0].sort_values("padj")
+        slug = os.path.basename(f)[3:-4]
+        name = next((ct for ct in table.index if re.sub(r"[^A-Za-z0-9]+", "_", ct).strip("_") == slug), slug.replace("_", " "))
+        if len(sig):
+            de.append({"cell_type": name, "n_sig": int(len(sig)), "n_up": int(len(up)), "n_down": int(len(down)),
+                       "top_up": [[g, round(float(v), 2)] for g, v in up["log2FoldChange"].head(8).items()],
+                       "top_down": [[g, round(float(v), 2)] for g, v in down["log2FoldChange"].head(4).items()]})
+    summary["de"] = sorted(de, key=lambda r: -r["n_sig"])
+
+    bf = os.path.join(res, "batch_report.csv")
+    if os.path.exists(bf):
+        bt = pd.read_csv(bf, index_col=0)
+        summary["batch_key"] = bt.index.name
+        counts = bt.drop(columns="single_disease", errors="ignore")
+        sle_col = sle_label if sle_label in counts else counts.columns[0]
+        summary["batches"] = [{"batch": str(b).removesuffix(".0"), "SLE": int(r[sle_col]),
+                               "healthy": int(r.drop(sle_col).sum())} for b, r in counts.iterrows()]
+
+    if adata is not None:
+        obs = adata.obs
+        y = donor_labels(obs, sle_label)
+        # share of each cell type per donor, SLE vs healthy
+        frac = pd.crosstab(obs["donor_id"].astype(str), obs["cell_type_pred"].astype(str), normalize="index").loc[y.index]
+        comp = []
+        for ct in frac.columns:
+            a, b = frac.loc[y == 1, ct], frac.loc[y == 0, ct]
+            if max(a.mean(), b.mean()) >= 0.005:
+                comp.append({"cell_type": ct, "SLE": round(float(a.mean()), 4), "healthy": round(float(b.mean()), 4),
+                             "p": float(mannwhitneyu(a, b).pvalue)})
+        summary["composition"] = sorted(comp, key=lambda r: r["p"])[:6]
+
+        # interferon score per donor: mean z-scored log-CPM of the IFN genes, whole-blood pseudobulk
+        genes = [g for g in IFN_GENES if g in adata.var_names]
+        if genes:
+            donors, counts, _ = pseudobulk(adata.layers["counts"], obs["donor_id"])
+            lc = pd.DataFrame(log_cpm(counts), index=donors, columns=adata.var_names)[genes].loc[y.index]
+            score = ((lc - lc.mean()) / lc.std().replace(0, 1)).mean(axis=1)
+            ifn = {"genes": genes, "auroc": round(float(roc_auc_score(y, score)), 3),
+                   "SLE": round(float(score[y == 1].mean()), 2), "healthy": round(float(score[y == 0].mean()), 2)}
+            oof_f = os.path.join(res, "oof_predictions.csv")
+            if os.path.exists(oof_f):
+                oof = pd.read_csv(oof_f, index_col=0)
+                oof.index = oof.index.astype(str)
+                ifn["spearman_vs_mil"] = round(float(spearmanr(score, oof.loc[score.index, "mil"]).statistic), 2)
+            summary["ifn"] = ifn
+
+    with open(os.path.join(res, "summary.json"), "w") as fh:
+        json.dump(summary, fh, indent=1)
+    return summary
+
+
 def write_examples(adata, cfg, art: str, res: str) -> None:
     """A few correctly predicted donors (out-of-fold), subsampled, with the genes the app needs and raw counts."""
     e = cfg["eval"]
@@ -101,12 +175,12 @@ def main() -> None:
     adata = ad.read_h5ad(path(cfg["data"]["represented"]))
     batch_key = adata.uns.get("batch_key") or None
 
-    print("[insights] 1/3 attention per cell type")
+    print("[insights] 1/4 attention per cell type")
     table = attention_table(adata, load_weights(os.path.join(art, "model.npz")), sle)
     table.to_csv(os.path.join(res, "attention_by_celltype.csv"), index_label="cell_type")
     print((table * 100).round(1).head(10))
 
-    print("[insights] 2/3 differential expression in the most-attended cell types")
+    print("[insights] 2/4 differential expression in the most-attended cell types")
     for ct in table.index[:cfg["eval"]["de_top_celltypes"]]:
         try:
             de = de_one_celltype(adata, ct, sle, batch_key, cfg["eval"]["min_cells_de"])
@@ -120,7 +194,12 @@ def main() -> None:
         top = de[de["padj"] < 0.05]
         print(f"  {ct}: {len(top)} genes padj<0.05; top up: {', '.join(top[top.log2FoldChange > 0].index[:5])}")
 
-    print("[insights] 3/3 example patients for the demo")
+    print("[insights] 3/4 summary for the app")
+    s = write_summary(res, adata, sle)
+    if "ifn" in s:
+        print(f"  interferon score AUROC {s['ifn']['auroc']:.3f}")
+
+    print("[insights] 4/4 example patients for the demo")
     write_examples(adata, cfg, art, res)
 
 

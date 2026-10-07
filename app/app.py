@@ -132,6 +132,51 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .note { font-size: 17px; line-height: 1.6; margin-top: 16px; }
 .note.muted { font-size: 15px; color: var(--body-text-color-subdued); }
 
+/* GitHub link in page headers */
+.gh { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 14px; border-radius: 99px;
+      font-size: 15px; font-weight: 550; text-decoration: none !important; color: var(--body-text-color) !important;
+      border: 1px solid var(--border-color-primary); background: var(--block-background-fill); }
+.gh:hover { border-color: var(--primary-500); color: var(--primary-600) !important; }
+
+/* PBMC findings */
+.headline { font-size: clamp(17px, 2.3vw, 20px); line-height: 1.5; padding: 16px 20px; border-radius: 16px; margin-top: 6px;
+            background: var(--primary-50); color: var(--primary-800, var(--body-text-color)); border: 1px solid var(--primary-200); }
+.fgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 14px; margin-top: 14px; }
+.fcard { padding: 18px 20px; border-radius: 16px; border: 1px solid var(--border-color-primary); background: var(--block-background-fill);
+         min-width: 0; }
+.fcard h4 { font-size: 19px; font-weight: 650; margin: 0 0 4px; }
+.fcard p { font-size: 15px; line-height: 1.5; color: var(--body-text-color-subdued); margin: 0 0 12px; }
+.fcard p.small { font-size: 14px; margin: 12px 0 0; }
+.fcard.concl { margin-top: 14px; }
+.fcard ol { margin: 6px 0 0; padding-left: 22px; font-size: 16px; line-height: 1.6; }
+.fcard li + li { margin-top: 6px; }
+i.sle, .legend i.sle { background: #e11d48; }
+i.hc, .legend i.hc { background: #10b981; }
+.legend { display: flex; gap: 16px; font-size: 13px; color: var(--body-text-color-subdued); margin-bottom: 8px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+.bp { margin-top: 10px; }
+.bp-name { font-size: 14px; font-weight: 550; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bp-row { display: flex; align-items: center; gap: 8px; height: 14px; margin: 2px 0; }
+.bp-row i { display: block; height: 9px; border-radius: 99px; flex: none; max-width: calc(100% - 48px); }
+.bp-row b { font-size: 12px; font-weight: 600; color: var(--body-text-color-subdued); }
+.de { padding: 10px 0; border-top: 1px solid var(--border-color-primary); }
+.de:first-of-type { border-top: 0; padding-top: 0; }
+.de-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; margin-bottom: 6px; }
+.de-head b { font-size: 15px; font-weight: 600; }
+.de-head span { font-size: 13px; color: var(--body-text-color-subdued); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; font-weight: 600; padding: 3px 9px;
+        border-radius: 8px; white-space: nowrap; }
+.chip.up { color: #be123c; background: #ffe4e6; }
+.chip.down { color: #475569; background: #e2e8f0; }
+.bt { display: grid; grid-template-columns: minmax(0, 150px) 1fr auto; align-items: center; gap: 10px; margin: 8px 0; }
+.bt-name { font-size: 14px; font-weight: 550; }
+.bt-name em { font-style: normal; font-size: 11px; font-weight: 600; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 1px 6px; margin-left: 4px; white-space: nowrap; }
+.bt-bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--border-color-primary); }
+.bt-bar i { display: block; height: 100%; }
+.bt-n { font-size: 13px; color: var(--body-text-color-subdued); font-variant-numeric: tabular-nums; }
+.demo-title { margin-top: 30px !important; }
+
 @media (max-width: 640px) {
   #hero { padding: 6px 0 4px; }
   #hero h1 { font-size: 30px; margin-bottom: 4px; }
@@ -148,6 +193,11 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
   /* on phones the whole card is the tap target: stretch the button over it, invisibly */
   .pcard button { position: absolute !important; inset: 0; opacity: 0; min-height: 0; margin: 0; }
   .card .stats { gap: 18px; }
+  .fcard { padding: 14px 16px; }
+  .tiles { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile { padding: 12px; }
+  .tile span { font-size: 24px; }
+  .bt { grid-template-columns: minmax(0, 120px) 1fr auto; }
 }
 
 footer { display: none !important; }
