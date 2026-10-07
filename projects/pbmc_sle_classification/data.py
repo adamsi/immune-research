@@ -9,9 +9,16 @@ import gc
 import os
 
 import anndata as ad
+import h5py
 import numpy as np
 import pandas as pd
 import scanpy as sc
+import scipy.sparse as sp
+
+try:
+    from anndata.io import read_elem, sparse_dataset
+except ImportError:  # anndata < 0.11
+    from anndata.experimental import read_elem, sparse_dataset
 
 from shared.common import load_config, parse_args
 
@@ -40,19 +47,30 @@ def download(cfg: dict) -> str:
     return dest
 
 
-def load_subsample(src: str, max_cells: int, seed: int) -> ad.AnnData:
-    """Read only obs first (backed mode), keep up to max_cells per donor, then load those cells' raw counts."""
-    backed = ad.read_h5ad(src, backed="r")
-    rng = np.random.default_rng(seed)
-    groups = backed.obs.groupby("donor_id", observed=True).indices
-    idx = np.sort(np.concatenate([rng.choice(ix, min(len(ix), max_cells), replace=False) for ix in groups.values()]))
-    sub = backed[idx].to_memory()
-    backed.file.close()
+def load_subsample(src: str, max_cells: int, seed: int, block: int = 25_000) -> ad.AnnData:
+    """Keep up to max_cells random cells per donor and load only their raw counts.
 
-    adata = sub.raw.to_adata() if sub.raw is not None else sub   # CELLxGENE keeps raw counts in .raw
-    if "feature_name" not in adata.var and "feature_name" in sub.var:
-        adata.var["feature_name"] = sub.var["feature_name"].reindex(adata.var_names)
-    del sub
+    The file is streamed: obs is read first, then the count matrix (raw/X if present, as on
+    CELLxGENE, else X) is read `block` rows at a time keeping only the picked rows, so peak RAM
+    stays around 1-2 GB however big the file is.
+    """
+    with h5py.File(src, "r") as f:
+        obs = read_elem(f["obs"])
+        rng = np.random.default_rng(seed)
+        groups = obs.groupby("donor_id", observed=True).indices
+        idx = np.sort(np.concatenate([rng.choice(ix, min(len(ix), max_cells), replace=False) for ix in groups.values()]))
+        has_raw = "raw" in f
+        X = sparse_dataset(f["raw/X"] if has_raw else f["X"])
+        var = read_elem(f["raw/var"] if has_raw else f["var"])
+        if "feature_name" not in var and "feature_name" in f["var"]:
+            var["feature_name"] = read_elem(f["var"])["feature_name"].reindex(var.index)
+        parts = []
+        for start in range(0, X.shape[0], block):
+            rows = idx[(idx >= start) & (idx < start + block)] - start
+            if len(rows):
+                parts.append(X[start:start + block][rows])
+        adata = ad.AnnData(X=sp.vstack(parts).tocsr(), obs=obs.iloc[idx].copy(), var=var)
+    del obs, parts
     gc.collect()
 
     vals = adata.X[:2000].data if hasattr(adata.X, "data") else np.asarray(adata.X[:2000]).ravel()
