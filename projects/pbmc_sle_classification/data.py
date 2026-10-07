@@ -96,7 +96,7 @@ def qc(adata: ad.AnnData, q: dict) -> ad.AnnData:
     sc.pp.calculate_qc_metrics(adata, qc_vars=["mt"], percent_top=None, log1p=False, inplace=True)
     keep = (adata.obs["n_genes_by_counts"] >= q["min_genes"]) & (adata.obs["pct_counts_mt"] < q["max_pct_mt"])
     print(f"  QC keeps {keep.sum():,} of {len(keep):,} cells")
-    adata = adata[keep].copy()
+    adata._inplace_subset_obs(keep.values)   # in place: avoids a second copy of the matrix
     sc.pp.filter_genes(adata, min_cells=q["min_cells_per_gene"])
     return adata
 

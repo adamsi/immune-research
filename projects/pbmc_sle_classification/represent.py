@@ -8,6 +8,7 @@ Output: data/processed/pbmc_rep.h5ad   + obsm["X_scVI"], obs["cell_type_pred"], 
         artifacts/scvi/                full scVI model (for reuse in notebooks)
         results/umap.png               atlas coloured by cell type, disease and batch
 """
+import gc
 import os
 
 import anndata as ad
@@ -35,16 +36,26 @@ def train_scvi(adata: ad.AnnData, batch_key: str | None, n_latent: int, epochs):
     return vae, hvg.var_names.tolist()
 
 
-def annotate(adata: ad.AnnData, model_name: str):
+def annotate(adata: ad.AnnData, model_name: str, chunk: int = 20_000):
     """CellTypist on log-normalised data (all genes), majority voting over fine Leiden clusters of the scVI graph."""
     import celltypist
     from celltypist import models
 
     models.download_models(model=model_name)
+    model = models.Model.load(model_name)
     sc.tl.leiden(adata, resolution=3, key_added="over_clust", flavor="igraph", n_iterations=2)
-    pred = celltypist.annotate(adata, model=model_name, majority_voting=True, over_clustering="over_clust")
-    adata.obs["cell_type_pred"] = pred.predicted_labels["majority_voting"].astype(str).values
-    return models.Model.load(model_name)
+    # CellTypist builds a dense cells x genes matrix, so predict in chunks to keep RAM low (fits 12 GB Colab)
+    labels = np.empty(adata.n_obs, dtype=object)
+    for start in range(0, adata.n_obs, chunk):
+        part = adata[start:start + chunk].copy()
+        labels[start:start + chunk] = celltypist.annotate(part, model=model).predicted_labels["predicted_labels"].astype(str).values
+        del part
+        gc.collect()
+    adata.obs["cell_type_raw"] = labels
+    # majority voting, as celltypist does it: each fine cluster takes its most common label
+    adata.obs["cell_type_pred"] = (adata.obs.groupby("over_clust", observed=True)["cell_type_raw"]
+                                   .transform(lambda s: s.value_counts().index[0]).astype(str))
+    return model
 
 
 def main() -> None:
