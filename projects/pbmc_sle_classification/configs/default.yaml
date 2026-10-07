@@ -4,7 +4,7 @@ data:
   raw: data/raw/perez2022.h5ad
   processed: data/processed/pbmc.h5ad        # after QC, normalisation, HVGs
   represented: data/processed/pbmc_rep.h5ad  # + scVI latent, cell types, UMAP
-  max_cells_per_donor: 1000   # subsample to fit in memory; every donor is kept
+  max_cells_per_donor: 500    # subsample to fit in 12 GB RAM; every donor is kept
   batch_key: auto             # auto = first of Processing_Cohort / batch_cov / batch / pool present
   sle_label: systemic lupus erythematosus
 
