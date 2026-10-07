@@ -22,9 +22,9 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from shared.common import load_config, parse_args
+from shared.metrics import auc_with_ci
 
 from . import DEFAULT_CONFIG, path
-from .evaluate import auc_with_ci
 
 URL = "https://raw.githubusercontent.com/AmitLab/CAR_T/main/data/250126_Features_for_model.csv"
 NON_FEATURES = ["response_1m_or_3m", "Bcategory"]   # Patient_ID is the index

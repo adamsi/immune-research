@@ -1,7 +1,9 @@
 # Runtime for the app and the Hugging Face Space (which installs only this file). No PyTorch: inference is numpy.
+# scikit-learn also unpickles the PBMC baseline.joblib, so keep training on the same version.
 gradio>=6,<7
 scikit-learn==1.9.1     # must match the version that pickled the CAR-T pca.pkl
 pandas>=2.2
 numpy>=1.26
 huggingface_hub>=0.30
+anndata>=0.10           # reads uploaded .h5ad files in the PBMC demo
 python-dotenv>=1.0

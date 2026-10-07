@@ -12,6 +12,7 @@ import pandas as pd
 
 from shared.mil_numpy import load_weights, predict as mil_predict
 from shared.plotting import attention_by_group
+from shared.ui import connect, file_input
 
 from . import path
 
@@ -103,10 +104,10 @@ def predict(file):
         "cell type": cell_type.values[top] if cell_type is not None else "?",
         "attention weight": [round(float(v), 5) for v in att[top]],
     })
-    return card, plot_df, top_df
+    return card, gr.BarPlot(value=plot_df, visible=True), gr.Dataframe(value=top_df, visible=True)
 
 
-IDLE = "<div class='card'><div class='idle'>Pick an example or upload a CSV.</div></div>"
+IDLE = "<div class='card'><div class='idle'>Upload a patient's file or pick an example.</div></div>"
 
 HOW = """
 <p class="note" style="margin-top:0">
@@ -160,21 +161,17 @@ def build() -> None:
     with gr.Row(equal_height=False):
         with gr.Column(scale=5, min_width=280):
             gr.HTML("<div class='section'>1 · Patient</div>")
-            file_in = gr.File(label="Patient CSV", file_types=[".csv"], height=100)
-            if EXAMPLES:
-                gr.Examples(examples=[[e] for e in EXAMPLES], inputs=file_in, label="Examples",
-                            example_labels=[_example_label(e) for e in EXAMPLES])
-            run = gr.Button("Predict", variant="primary", size="lg")
+            picker = file_input("Upload a patient's cells", ".csv · raw counts", [".csv"],
+                                [(_example_label(e), e) for e in EXAMPLES])
             with gr.Accordion("File format", open=False):
                 gr.HTML(FORMAT)
         with gr.Column(scale=7, min_width=280):
             gr.HTML("<div class='section'>2 · Result</div>")
             card = gr.HTML(IDLE)
             plot = gr.BarPlot(x="cell type", y="attention share (%)", label="Attention by cell type", sort="-y",
-                              x_label_angle=-35, height=360)
-            top = gr.Dataframe(label="Top 10 cells", interactive=False, wrap=True)
+                              x_label_angle=-35, height=360, visible=False)
+            top = gr.Dataframe(label="Top 10 cells", interactive=False, wrap=True, visible=False)
     with gr.Accordion("🧠 How the model works", open=True):
         gr.HTML(_diagram() + HOW)
 
-    run.click(predict, inputs=file_in, outputs=[card, plot, top])
-    file_in.change(predict, inputs=file_in, outputs=[card, plot, top])
+    connect(picker, predict, [card, plot, top])

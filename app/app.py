@@ -15,31 +15,16 @@ except ImportError:
 import gradio as gr  # noqa: E402
 
 from projects.cart_responder import demo as cart  # noqa: E402
+from projects.pbmc_sle_classification import demo as pbmc  # noqa: E402
 
 PROJECTS = [
     {"id": "cart-responder", "icon": "🧬", "title": "CAR-T Responder", "status": "Live demo", "cta": "Open demo →",
      "blurb": "Predict CAR-T response from blood cells."},
-    {"id": "pbmc-sle", "icon": "🧬", "title": "PBMC SLE", "status": "Coming soon", "cta": "View plan →",
-     "blurb": "Lupus classification from PBMC single-cell data."},
+    {"id": "pbmc-sle", "icon": "🧬", "title": "PBMC SLE", "status": "Training" if pbmc.LOAD_ERROR else "Live demo",
+     "cta": "Open demo →", "blurb": "Lupus vs healthy from PBMC single-cell data."},
     {"id": "foundation-model", "icon": "🌐", "title": "Foundation Model", "status": "Coming soon", "cta": "Learn more →",
      "blurb": "A pretrained single-cell model for immunology."},
 ]
-
-SLE_STEPS = [
-    ("Data", "Perez et al. 2022 (<i>Science</i>) lupus PBMC atlas from CELLxGENE."),
-    ("Preprocessing", "QC filtering, normalisation and highly variable genes; batch-effect stratification "
-                      "and removal (scVI <code>batch_key</code>, or Harmony)."),
-    ("Representation", "scVI latent space, CellTypist cell types and a UMAP atlas."),
-    ("Models", "Pseudobulk logistic-regression baseline vs attention-MIL, donor-split CV, AUROC."),
-    ("Insights", "Attention per cell type and pseudobulk differential expression."),
-]
-
-SLE_PLAN = """
-<div class="page-head"><h2>🧬 PBMC SLE Classification</h2>
-<p>Patient-level lupus classification from blood single-cell RNA-seq. <span class="pill soon">Coming soon</span></p></div>
-<div class="stepper">""" + "".join(
-    f"<div class='step-card'><b>Step {i} · {t}</b><p>{d}</p></div>" for i, (t, d) in enumerate(SLE_STEPS, 1)
-) + "</div>"
 
 FM_TEXT = """
 <div class="page-head"><h2>🌐 Foundation Model</h2>
@@ -79,13 +64,47 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .page-head { padding: clamp(18px, 4vw, 30px) 0 clamp(14px, 2.5vw, 22px); }
 .page-head h2 { font-size: clamp(28px, 5vw, 40px); font-weight: 700; letter-spacing: -0.02em; margin: 0 0 10px; line-height: 1.15; }
 .page-head p  { font-size: clamp(17px, 2.3vw, 20px); color: var(--body-text-color-subdued); margin: 0; max-width: 760px; line-height: 1.55; }
-/* SLE plan: responsive grid of step cards */
-.stepper { display: grid; gap: 14px;
-           grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
-.stepper .step-card { padding: 18px 20px; border-radius: 14px; border: 1px solid var(--border-color-primary);
-              background: var(--block-background-fill); min-width: 0; }
-.stepper b { display: block; font-size: 19px; margin: 0 0 6px; }
-.stepper p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--body-text-color-subdued); overflow-wrap: anywhere; }
+/* uploader: one calm row, our own labels (no browser-language strings), then example chips */
+.uploader { align-items: center !important; gap: 12px !important; padding: 14px 16px !important; flex-wrap: nowrap !important;
+            border: 1.5px dashed var(--border-color-primary) !important; border-radius: 14px !important;
+            background: var(--block-background-fill) !important; }
+.uploader:hover { border-color: var(--primary-400) !important; }
+.uploader .upl-status { flex: 1 1 auto !important; min-width: 0 !important; }
+.uploader .upl-status .html-container { padding: 0 !important; }
+.upl-empty, .upl-file { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.upl-icon { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 10px;
+            background: var(--primary-50); color: var(--primary-600); }
+.upl-title, .upl-name { font-size: 16px; font-weight: 600; line-height: 1.3; }
+.upl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upl-meta { min-width: 0; }
+.upl-hint { font-size: 14px; color: var(--body-text-color-subdued); line-height: 1.3; }
+.upl-ok { margin-left: auto; color: #15803d; font-weight: 700; }
+.uploader .upl-btn { flex: none !important; width: auto !important; min-width: 0 !important; white-space: nowrap; }
+.chips { gap: 8px !important; flex-wrap: wrap !important; justify-content: flex-start !important; margin-top: -4px; }
+.chips-label { font-size: 13px; color: var(--body-text-color-subdued); margin-top: 2px; }
+.chips .chip { flex: none !important; width: auto !important; min-width: 0 !important; border-radius: 99px !important;
+               font-size: 14px !important; padding: 4px 12px !important; }
+
+/* architecture: step flow, then result tiles */
+.arch-title { margin-top: 28px; }
+.flow { display: flex; align-items: stretch; gap: 8px; margin: 8px 0 4px; }
+.flow .node { flex: 1 1 0; min-width: 0; padding: 14px; border-radius: 14px; border: 1px solid var(--border-color-primary);
+              background: var(--block-background-fill); display: flex; flex-direction: column; gap: 4px; }
+.flow .n { font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--primary-600); }
+.flow .ico { font-size: 22px; line-height: 1.2; }
+.flow b { font-size: 17px; }
+.flow span { font-size: 14px; line-height: 1.45; color: var(--body-text-color-subdued); }
+.flow em { font-style: normal; font-size: 13px; margin-top: auto; padding-top: 6px; color: var(--primary-700); }
+.flow .arrow { align-self: center; color: var(--body-text-color-subdued); font-size: 18px; flex: none; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; margin-top: 14px; }
+.tile { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border-color-primary); background: var(--block-background-fill);
+        font-size: 14px; color: var(--body-text-color-subdued); }
+.tile span { display: block; font-size: 28px; font-weight: 700; color: var(--body-text-color); letter-spacing: -0.02em; }
+.tile small { display: block; font-size: 12px; margin-top: 2px; }
+@media (max-width: 900px) {
+  .flow { flex-direction: column; }
+  .flow .arrow { transform: rotate(90deg); margin: -2px 0; }
+}
 .fmt { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.6; }
 
 /* CAR-T demo */
@@ -186,7 +205,7 @@ with gr.Blocks(title="Immune Research") as demo:
         with gr.Tab("🧬 CAR-T Responder", id="cart-responder"):
             cart.build()
         with gr.Tab("🧬 PBMC SLE", id="pbmc-sle"):
-            gr.HTML(SLE_PLAN)
+            pbmc.build()
         with gr.Tab("🌐 Foundation Model", id="foundation-model"):
             gr.HTML(FM_TEXT)
     gr.HTML(FOOT)
@@ -195,4 +214,4 @@ with gr.Blocks(title="Immune Research") as demo:
     demo.load(_tab_from_url, outputs=tabs)  # deep links: ?tab=pbmc-sle opens that tab
 
 if __name__ == "__main__":
-    demo.launch(css=CSS, theme=THEME, allowed_paths=[cart.EX], server_name="0.0.0.0")
+    demo.launch(css=CSS, theme=THEME, allowed_paths=[cart.EX] + ([pbmc.EX] if pbmc.EX else []), server_name="0.0.0.0")
