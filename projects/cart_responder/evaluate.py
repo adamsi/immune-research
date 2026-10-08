@@ -18,20 +18,11 @@ from sklearn.metrics import roc_auc_score
 
 from shared.common import build_bags, load_config, parse_args
 from shared.data import dense_float32
+from shared.metrics import auc_with_ci
 from shared.mil_torch import AttentionMIL
 from shared.plotting import attention_by_group
 
 from . import DEFAULT_CONFIG, path
-
-
-def auc_with_ci(y, prob, n_boot, seed=0):
-    rng = np.random.default_rng(seed)
-    boot = []
-    for _ in range(n_boot):
-        s = rng.integers(0, len(y), len(y))
-        if len(set(y[s])) > 1:
-            boot.append(roc_auc_score(y[s], prob[s]))
-    return roc_auc_score(y, prob), float(np.percentile(boot, 2.5)), float(np.percentile(boot, 97.5))
 
 
 def main() -> None:

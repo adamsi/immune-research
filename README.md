@@ -17,8 +17,8 @@ short_description: Single-cell immunology ML projects in one demo hub
 Machine learning on single-cell immune data, served as one Gradio app.
 
 - `projects/cart_responder`: CAR-T response prediction (live demo)
-- `projects/pbmc_sle_classification`: lupus classification from PBMC (planned)
-- `shared/`: code reused across projects
+- `projects/pbmc_sle_classification`: lupus vs healthy from PBMC single-cell data (pipeline + demo)
+- `shared/`: code reused across projects (attention-MIL, metrics, the upload widget)
 - `app/app.py`: the Gradio app
 
 ## Run
@@ -34,4 +34,5 @@ Pushes to `main` sync to the Space `AdamSion74/immune-research` via `.github/wor
 (needs the `HF_TOKEN` repo secret).
 
 CAR-T weights are not in git; the app downloads them from the model repo `AdamSion74/cart-responder-model`
-(override with `CART_MODEL_REPO`).
+(override with `CART_MODEL_REPO`). PBMC artifacts come from `AdamSion74/pbmc-sle-model`
+(override with `PBMC_MODEL_REPO`); until they are uploaded the PBMC tab shows the pipeline without predictions.

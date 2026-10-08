@@ -1,0 +1,46 @@
+# Single source of truth for paths and hyperparameters. Every script reads this file.
+data:
+  collection_doi: 10.1126/science.abf1970   # Perez et al. 2022, Science
+  raw: data/raw/perez2022.h5ad
+  processed: data/processed/pbmc.h5ad        # after QC, normalisation, HVGs
+  represented: data/processed/pbmc_rep.h5ad  # + scVI latent, cell types, UMAP
+  max_cells_per_donor: 500    # subsample to fit in 12 GB RAM; every donor is kept
+  batch_key: auto             # auto = first of Processing_Cohort / batch_cov / batch / pool present
+  sle_label: systemic lupus erythematosus
+
+qc:
+  min_genes: 200
+  max_pct_mt: 15
+  min_cells_per_gene: 3
+  n_top_genes: 2000
+
+represent:
+  n_latent: 30
+  scvi_epochs: null           # null = scvi-tools default for the dataset size
+  celltypist_model: Immune_All_Low.pkl
+
+model:
+  d: 128
+  d_att: 64
+  dropout: 0.3
+
+train:
+  epochs: 30
+  n_sub: 500           # cells sampled per donor per epoch (augmentation + speed)
+  lr: 0.001
+  weight_decay: 0.0001
+  n_splits: 5
+  n_repeats: 1
+  seed: 0
+  baseline_C: 0.1      # inverse L2 strength of the pseudobulk logistic regression
+
+eval:
+  n_boot: 1000
+  de_top_celltypes: 5
+  min_cells_de: 10
+  n_examples: 3
+  example_cells: 800
+
+paths:
+  artifacts: artifacts
+  results: results
