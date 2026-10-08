@@ -221,16 +221,17 @@ def _card_html(p: dict) -> str:
 TABS = ("home", "cart-responder", "pbmc-sle", "foundation-model")
 
 
-def _url_js(slug: str) -> str:
-    """Client-side: put ?tab=<slug> in the address bar so the current tab can be shared as a link."""
-    return ("() => { const u = new URL(window.location.href); "
-            f"if ('{slug}' === 'home') u.searchParams.delete('tab'); else u.searchParams.set('tab', '{slug}'); "
-            "history.replaceState(null, '', u); }")
-
-
+# Client-side: put ?tab=<slug> in the address bar so the current tab can be shared as a link (Home clears it).
+# On huggingface.co/spaces/... the app is an iframe, so also ask the Space page to update its own URL
+# (Hugging Face listens for this postMessage and forwards its query string to the app on load).
 SET_URL_JS = """(slug) => { const u = new URL(window.location.href);
   if (slug === "home") u.searchParams.delete("tab"); else u.searchParams.set("tab", slug);
-  history.replaceState(null, "", u); }"""
+  history.replaceState(null, "", u);
+  if (window.parent !== window) window.parent.postMessage({ queryString: u.searchParams.toString() }, "https://huggingface.co"); }"""
+
+
+def _url_js(slug: str) -> str:
+    return f"() => ({SET_URL_JS})('{slug}')"
 
 
 def _picked_slug(evt: gr.SelectData) -> str:
