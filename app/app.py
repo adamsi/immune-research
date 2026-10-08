@@ -228,15 +228,13 @@ def _url_js(slug: str) -> str:
             "history.replaceState(null, '', u); }")
 
 
-# After any tab switch, read the active tab's label and mirror it in ?tab= (Home clears it).
-SYNC_URL_JS = """() => setTimeout(() => {
-  const slugs = {"CAR-T Responder": "cart-responder", "PBMC SLE": "pbmc-sle", "Foundation Model": "foundation-model"};
-  const label = document.querySelector('[role=tab][aria-selected=true]')?.textContent || "";
-  const slug = Object.keys(slugs).find(k => label.includes(k));
-  const u = new URL(window.location.href);
-  if (slug) u.searchParams.set("tab", slugs[slug]); else u.searchParams.delete("tab");
-  history.replaceState(null, "", u);
-}, 0)"""
+SET_URL_JS = """(slug) => { const u = new URL(window.location.href);
+  if (slug === "home") u.searchParams.delete("tab"); else u.searchParams.set("tab", slug);
+  history.replaceState(null, "", u); }"""
+
+
+def _picked_slug(evt: gr.SelectData) -> str:
+    return evt.value if evt.value in TABS else TABS[evt.index]
 
 
 def _tab_from_url(request: gr.Request):
@@ -263,7 +261,9 @@ with gr.Blocks(title="Immune Research") as demo:
             gr.HTML(FM_TEXT)
     gr.HTML(FOOT)
 
-    tabs.select(None, js=SYNC_URL_JS)
+    # mirror the picked tab in ?tab= (Home clears it), so the address bar is always shareable
+    slug_box = gr.Textbox(visible=False)
+    tabs.select(_picked_slug, outputs=slug_box).then(None, inputs=slug_box, js=SET_URL_JS)
     demo.load(_tab_from_url, outputs=tabs)  # deep links: ?tab=pbmc-sle opens that tab
 
 if __name__ == "__main__":
