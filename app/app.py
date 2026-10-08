@@ -43,7 +43,9 @@ CSS = """
 button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12px 16px !important; }
 
 /* project cards: compact so all of them fit on one screen */
-.cards { gap: clamp(12px, 2vw, 20px) !important; }
+.cards { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2vw, 20px) !important; align-items: stretch !important; }
+.cards > .pcard { min-width: 0 !important; width: auto !important; height: 100%; }
+.pcard .pill { margin-top: 6px; }
 .pcard { border-radius: 18px !important; padding: clamp(16px, 2.5vw, 24px) !important; gap: 12px !important;
          border: 1px solid var(--border-color-primary) !important; background: var(--block-background-fill) !important; }
 .pcard { position: relative; }
@@ -102,6 +104,7 @@ button[role="tab"] { font-size: clamp(16px, 2.2vw, 18px) !important; padding: 12
 .tile span { display: block; font-size: 28px; font-weight: 700; color: var(--body-text-color); letter-spacing: -0.02em; }
 .tile small { display: block; font-size: 12px; margin-top: 2px; }
 @media (max-width: 900px) {
+  .cards { grid-template-columns: 1fr; }
   .flow { flex-direction: column; }
   .flow .arrow { transform: rotate(90deg); margin: -2px 0; }
 }
@@ -182,7 +185,7 @@ i.hc, .legend i.hc { background: #10b981; }
   #hero h1 { font-size: 30px; margin-bottom: 4px; }
   #hero p { font-size: 16px; }
   .pcard .html-container { padding: 0 !important; }
-  .cards { gap: 10px !important; }
+  .cards { grid-template-columns: 1fr; gap: 10px !important; }
   .pcard { padding: 14px 16px !important; }
   .pcard .head { align-items: center; }
   .pcard .icon { width: 44px; height: 44px; font-size: 24px; border-radius: 12px; }
@@ -211,7 +214,7 @@ THEME = gr.themes.Soft(primary_hue="indigo", neutral_hue="slate", font=gr.themes
 def _card_html(p: dict) -> str:
     pill = "live" if p["status"] == "Live demo" else "soon"
     return (f"<div class='head'><div class='icon'>{p['icon']}</div><div class='txt'>"
-            f"<h3>{p['title']} <span class='pill {pill}'>{p['status']}</span></h3><p>{p['blurb']}</p>"
+            f"<h3>{p['title']}</h3><span class='pill {pill}'>{p['status']}</span><p>{p['blurb']}</p>"
             f"</div><span class='go'>›</span></div>")
 
 
@@ -250,7 +253,7 @@ with gr.Blocks(title="Immune Research") as demo:
                 for p in PROJECTS:
                     with gr.Column(min_width=260, elem_classes="pcard"):
                         gr.HTML(_card_html(p))
-                        btn = gr.Button(p["cta"], variant="primary" if p["id"] == "cart-responder" else "secondary")
+                        btn = gr.Button(p["cta"], variant="primary")
                         btn.click(lambda tab=p["id"]: gr.Tabs(selected=tab), outputs=tabs).then(None, js=_url_js(p["id"]))
         with gr.Tab("🧬 CAR-T Responder", id="cart-responder"):
             cart.build()
