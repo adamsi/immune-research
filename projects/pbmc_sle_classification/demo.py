@@ -1,8 +1,10 @@
-"""PBMC SLE demo tab: upload one donor's PBMC single-cell counts, get P(SLE) and attention by cell type.
+"""PBMC SLE demo tab: upload one blood sample's single-cell counts, get healthy vs SLE subtype, P(SLE) and
+attention by cell type.
 
 Runs without PyTorch: the scVI encoder, CellTypist and the attention-MIL are numpy exports (features.py,
 shared/mil_numpy.py). Artifacts come from the Hugging Face model repo named by PBMC_MODEL_REPO; a local
 projects/pbmc_sle_classification/artifacts/ folder (training output) takes precedence.
+Artifacts without classes.json are the earlier binary SLE-vs-healthy model, which still works.
 """
 import html
 import json
@@ -17,10 +19,11 @@ from shared.plotting import attention_by_group
 from shared.ui import connect, file_input, github_link
 
 from . import path
-from .features import encode_scvi, log_normalize, predict_celltypes, to_dense
+from .features import baseline_features, composition, encode_scvi, log_normalize, predict_celltypes, to_dense
 
 MODEL_REPO = os.environ.get("PBMC_MODEL_REPO", "AdamSion74/pbmc-sle-model")
 ARTIFACT_FILES = ("model.npz", "baseline.joblib", "scvi_encoder.npz", "celltypist.npz", "genes.txt")
+OPTIONAL_FILES = ("classes.json", "baseline_features.json")   # present for the multi-class (subtype) model
 TOP_TYPES = 10
 
 
@@ -29,7 +32,7 @@ def _artifact_dir() -> str:
     if all(os.path.exists(os.path.join(local, f)) for f in ARTIFACT_FILES):
         return local
     from huggingface_hub import snapshot_download
-    return snapshot_download(MODEL_REPO, allow_patterns=[*ARTIFACT_FILES, "examples/*.h5ad"])
+    return snapshot_download(MODEL_REPO, allow_patterns=[*ARTIFACT_FILES, *OPTIONAL_FILES, "examples/*.h5ad"])
 
 
 def _load():
@@ -44,6 +47,9 @@ def _load():
             "celltypist": dict(np.load(os.path.join(d, "celltypist.npz"))),
             "genes": open(os.path.join(d, "genes.txt")).read().split(),
         }
+        if all(os.path.exists(os.path.join(d, f)) for f in OPTIONAL_FILES):
+            art["classes"] = json.load(open(os.path.join(d, "classes.json")))
+            art["spec"] = json.load(open(os.path.join(d, "baseline_features.json")))
         return art, None
     except Exception as e:  # keep the rest of the app usable until the model is trained and uploaded
         return None, f"{type(e).__name__}: {e}"
@@ -97,37 +103,75 @@ def predict(file_path):
     if cell_type is None:
         cell_type = predict_celltypes(ART["celltypist"], log_normalize(X, totals), genes)
     z = encode_scvi(ART["scvi"], counts)
+    stats = f"""<div class="stats"><div><span>{len(X):,}</span>cells</div>
+        <div><span>{len(present):,}/{len(model_genes):,}</span>model genes</div>"""
+    if "classes" in ART:
+        if np.isin(cell_type, ART["spec"]["cell_types"]).mean() < 0.5:   # the file's labels use other names
+            cell_type = predict_celltypes(ART["celltypist"], log_normalize(X, totals), genes)
+        card, att = _predict_subtype(counts, cell_type, z, stats)
+    else:
+        card, att = _predict_binary(counts, z, stats)
+    share = attention_by_group(att, cell_type, top=TOP_TYPES)
+    plot_df = pd.DataFrame({"cell type": share.index, "attention share (%)": (share.values * 100).round(2)})
+    return card, gr.BarPlot(value=plot_df, visible=True)
+
+
+def _predict_binary(counts, z, stats):
+    """The earlier model: one probability of SLE."""
     p, att = mil_predict(ART["mil"], z)
     p_base = float(ART["baseline"].predict_proba(counts.sum(0, keepdims=True))[0, 1])
-
-    sle = p >= 0.5
-    color = "#b91c1c" if sle else "#15803d"
-    verdict = "Lupus-like profile" if sle else "Healthy-like profile"
+    color = "#b91c1c" if p >= 0.5 else "#15803d"
+    verdict = "Lupus-like profile" if p >= 0.5 else "Healthy-like profile"
     card = f"""
     <div class="card">
       <div class="label">Probability of SLE</div>
       <div class="big" style="color:{color}">{p:.0%}</div>
       <div class="bar"><div class="fill" style="width:{p * 100:.1f}%;background:{color}"></div></div>
       <div class="verdict" style="color:{color}">{verdict}</div>
-      <div class="stats">
-        <div><span>{len(X):,}</span>cells</div>
-        <div><span>{len(present):,}/{len(model_genes):,}</span>model genes</div>
-        <div><span>{p_base:.0%}</span>baseline model</div>
-      </div>
+      {stats}<div><span>{p_base:.0%}</span>baseline model</div></div>
     </div>"""
-    share = attention_by_group(att, cell_type, top=TOP_TYPES)
-    plot_df = pd.DataFrame({"cell type": share.index, "attention share (%)": (share.values * 100).round(2)})
-    return card, gr.BarPlot(value=plot_df, visible=True)
+    return card, att
+
+
+def _predict_subtype(counts, cell_type, z, stats):
+    """The subtype model: healthy or one SLE subtype, from the MIL and the elastic-net baseline averaged."""
+    classes, desc, spec = ART["classes"]["classes"], ART["classes"]["descriptions"], ART["spec"]
+    w = ART["mil"]
+    use_extra = w["head.weight"].shape[1] > w["w.weight"].shape[0] * w["enc.0.weight"].shape[0]
+    p_mil, att = mil_predict(w, z, composition(cell_type, spec["cell_types"]) if use_extra else None)
+    base = ART["baseline"]
+    p_base = np.zeros(len(classes))
+    p_base[base.classes_] = base.predict_proba(baseline_features(counts, cell_type, spec)[None])[0]
+    p = (np.asarray(p_mil) + p_base) / 2
+    top = int(p.argmax())
+    p_sle = 1 - p[0]
+    color = "#15803d" if top == 0 else "#b91c1c"
+    verdict = "Healthy-like profile" if top == 0 else f"Lupus-like profile · subtype {classes[top]}"
+    rows = "".join(
+        f"<div class='bp'><div class='bp-name'>{html.escape(c)} <small>{html.escape(desc.get(c, ''))}</small></div>"
+        f"<div class='bp-row'><i class='{'hc' if i == 0 else 'sle'}' style='width:{max(p[i] * 100, 0.6):.1f}%'></i>"
+        f"<b>{p[i]:.0%}</b></div></div>" for i, c in enumerate(classes))
+    card = f"""
+    <div class="card">
+      <div class="label">Probability of SLE</div>
+      <div class="big" style="color:{color}">{p_sle:.0%}</div>
+      <div class="bar"><div class="fill" style="width:{p_sle * 100:.1f}%;background:{color}"></div></div>
+      <div class="verdict" style="color:{color}">{html.escape(verdict)}</div>
+      <div class="classes">{rows}</div>
+      {stats}<div><span>{1 - p_base[0]:.0%}</span>baseline P(SLE)</div></div>
+    </div>"""
+    return card, att
 
 
 IDLE = "<div class='card'><div class='idle'>Upload a donor's file or pick an example.</div></div>"
 
 FLOW = [
-    ("🩸", "Data", "Perez et al. 2022 lupus PBMC atlas (CELLxGENE)", "≈260 donors · SLE vs healthy"),
-    ("🧹", "Preprocess", "QC, normalisation, 2,000 HVGs, batch report", "clean counts per cell"),
-    ("🧭", "Represent", "scVI latent space (batch removed), CellTypist, UMAP", "30 numbers + a type per cell"),
-    ("🎯", "Model", "Attention-MIL on each donor's cells vs pseudobulk logistic regression", "P(SLE) per donor · AUROC"),
-    ("🔍", "Insights", "Attention per cell type, pseudobulk DE (PyDESeq2)", "which cells and genes"),
+    ("🩸", "Data", "Perez et al. 2022 lupus PBMC atlas (CELLxGENE)", "274 samples · 261 donors"),
+    ("🧹", "Preprocess", "QC + platelet filter, Perez cell labels, 5,000 HVGs, batch report", "clean counts per cell"),
+    ("🧭", "Represent", "scVI latent space (batch removed), CellTypist on Perez labels, UMAP", "30 numbers + a type per cell"),
+    ("🧩", "Subtypes", "Cluster SLE patients by cell abundance + interferon/cytotoxic programs", "healthy or SLE-A/B/…"),
+    ("🎯", "Model", "Multi-head attention-MIL + abundance vs elastic-net pseudobulk, donor-split and cohort-held-out CV", "class per sample · AUROC"),
+    ("🔍", "Insights", "Attention per type, abundance test, DE, flare vs after treatment", "which cells and genes"),
 ]
 
 
@@ -138,7 +182,8 @@ def _metrics_html() -> str:
     m = json.load(open(f))
     tile = lambda name, k: (f"<div class='tile'><span>{m[k]['auroc']:.2f}</span>{name}"
                             f"<small>95% CI {m[k]['ci95'][0]:.2f}–{m[k]['ci95'][1]:.2f}</small></div>")
-    return (f"<div class='tiles'>{tile('Attention-MIL AUROC', 'mil')}{tile('Baseline AUROC', 'baseline')}"
+    ens = tile("Ensemble SLE AUROC", "ensemble") if "ensemble" in m else ""
+    return (f"<div class='tiles'>{ens}{tile('Attention-MIL SLE AUROC', 'mil')}{tile('Baseline SLE AUROC', 'baseline')}"
             f"<div class='tile'><span>{m['n_donors']}</span>donors<small>{m['n_sle']} SLE · {m['cv']}</small></div></div>")
 
 
@@ -177,6 +222,12 @@ def _findings_html() -> str:
     tiles.append((f"{fold:.1f}×", f"more attention on {top['cell_type'].lower()}", "in SLE vs healthy donors"))
     if de:
         tiles.append((f"{n_genes:,}", "gene changes (padj < 0.05)", f"across {len(de)} cell types"))
+    if m and "macro_auroc" in m.get("ensemble", {}):
+        tiles.append((f"{m['ensemble']['macro_auroc']:.2f}", "macro AUROC, healthy vs subtypes", f"{len(m['classes'])} classes"))
+    if m and m.get("cohort_cv"):
+        cc = m["cohort_cv"]
+        tiles.append((f"{np.mean([r['ensemble'] for r in cc.values()]):.2f}", "AUROC on a held-out lab cohort",
+                      "cohorts " + ", ".join(cc)))
     if ifn:
         tiles.append((f"{ifn['auroc']:.2f}", "AUROC of an interferon score", f"{len(ifn['genes'])} genes, no ML"))
     tiles_html = "".join(f"<div class='tile'><span>{v}</span>{t}<small>{sub}</small></div>" for v, t, sub in tiles)
@@ -212,7 +263,7 @@ def _findings_html() -> str:
                 "scVI removes the batch from the cell embeddings, and DE adds batch as a covariate where the design allows."
                 if confounded else "Every cohort holds both groups, so batch is not confounded with disease.")
         batch_html = f"""<div class="fcard"><h4>🧪 Batch check</h4>
-          <p>Donors per processing cohort (SLE / healthy).</p>{rows}<p class="small">{warn}</p></div>"""
+          <p>{'Samples' if s.get('endotypes') else 'Donors'} per processing cohort (SLE / healthy).</p>{rows}<p class="small">{warn}</p></div>"""
 
     base = (f"The simple pseudobulk baseline scores about the same (AUROC {m['baseline']['auroc']:.2f}), so the MIL "
             "model's added value is the per-cell explanation, not accuracy." if m else "")
@@ -236,9 +287,51 @@ def _findings_html() -> str:
         {legend}{attention}</div>
       <div class="fcard"><h4>🧬 Genes changed in SLE</h4><p>Pseudobulk DESeq2 per cell type. Strongest genes up
         <span class='chip up'>gene</span> and down <span class='chip down'>gene</span>.</p>{genes}</div>
-      {ifn_html}{batch_html}
+      {_endotypes_html(s)}{_composition_html(s)}{_paired_html(s)}{ifn_html}{batch_html}
     </div>
     <div class="fcard concl"><h4>✅ Conclusions</h4><ol>{concl}</ol></div>"""
+
+
+def _ct_chip(cell_type: str, share: float) -> str:
+    return f'<span class="chip ct">{html.escape(cell_type)} {share:.0%}</span>'
+
+
+def _endotypes_html(s: dict) -> str:
+    if not s.get("endotypes"):
+        return ""
+    rows = "".join(
+        f"<div class='ecard'><div class='de-head'><b>{html.escape(e['name'])}</b><span>{e['n']} samples</span></div>"
+        f"<p class='small'>{html.escape(e['description'])}</p>"
+        f"<div class='chips'>{''.join(_ct_chip(ct, v) for ct, v in e['attention'])}</div></div>"
+        for e in s["endotypes"])
+    return f"""<div class="fcard"><h4>🧩 SLE subtypes</h4><p>SLE samples clustered by cell-type abundance and gene
+      programs (interferon, cytotoxic) per lineage, each centred on healthy donors of the same lab cohort. Chips: where
+      the model looks for that subtype.</p>{rows}</div>"""
+
+
+def _composition_html(s: dict) -> str:
+    comp = s.get("composition")
+    if not comp:
+        return ""
+    legend = "<div class='legend'><span><i class='sle'></i>SLE donors</span><span><i class='hc'></i>healthy donors</span></div>"
+    scale = max(max(r["SLE"], r["healthy"]) for r in comp)
+    bars = "".join(_bar_pair(f"{r['cell_type']}  (p={r['p']:.0e})", r["SLE"], r["healthy"], scale, lambda v: f"{v:.1%}") for r in comp)
+    return f"""<div class="fcard"><h4>📊 Cell abundance</h4><p>Mean share of a donor's cells; Perez's weighted
+      least squares test, Bonferroni-adjusted p.</p>{legend}{bars}</div>"""
+
+
+def _paired_html(s: dict) -> str:
+    pr = s.get("paired")
+    if not pr:
+        return ""
+    de = "".join(
+        f"<div class='de'><div class='de-head'><b>{html.escape(d['lineage'])}</b><span>{d['n_sig']:,} genes change</span></div>"
+        f"<div class='chips'>{_chips(d['top_down'][:6], 'down')}{_chips(d['top_up'][:2], 'up')}</div></div>"
+        for d in pr["de"] if d["n_sig"])
+    comp = ", ".join(f"{html.escape(r['cell_type'])} {r['flare']:.1f}% → {r['treated']:.1f}%" for r in pr["composition"][:3])
+    return f"""<div class="fcard"><h4>💊 Flare → after treatment</h4><p>The same {pr['n_pairs']} patients sampled at
+      flare and after treatment (same lab cohort, so no batch effect). Genes going down after treatment
+      <span class='chip down'>gene</span>.</p>{de}<p class="small">Largest abundance shifts: {comp}</p></div>"""
 
 
 def _architecture_html() -> str:
@@ -248,11 +341,12 @@ def _architecture_html() -> str:
     return f"""
     <div class="flow">{nodes}</div>
     {_metrics_html()}
-    <p class="note">Each donor is a bag of thousands of blood cells with a single label (SLE or healthy).
-      scVI compresses every cell to 30 numbers while removing lab-batch effects; the attention-MIL model scores
-      each cell, averages the cells by those scores and outputs P(SLE). The attention weights show which cell
-      types drove the call. A pseudobulk logistic regression on summed gene counts is the baseline, scored on the
-      same donor-split folds.</p>
+    <p class="note">Each blood sample is a bag of cells with one label: healthy, or one of the SLE subtypes found by
+      clustering patients. scVI compresses every cell to 30 numbers while removing lab-batch effects; the multi-head
+      attention-MIL model scores each cell, pools the cells by those scores, adds the sample's cell-type abundance
+      and outputs class probabilities. An elastic-net regression on per-lineage pseudobulk plus abundance (as in
+      Perez et al.) is the baseline; the demo averages both. Folds are split by donor, and a second test holds out a
+      whole lab cohort.</p>
     <p class="note muted">⚠️ For research use only. Not a medical device and not intended for clinical decisions.</p>"""
 
 
@@ -267,8 +361,8 @@ FORMAT = """
 
 
 def _example_label(p: str) -> str:
-    donor, _, label = os.path.basename(p).removesuffix(".h5ad").rpartition("_")
-    return f"{donor} · {label}"
+    sample, _, label = os.path.basename(p).removesuffix(".h5ad").rpartition("_")
+    return f"{sample} · {label}"
 
 
 def build() -> None:
@@ -276,7 +370,7 @@ def build() -> None:
     status = "Live demo" if not LOAD_ERROR else "Training"
     pill = "live" if not LOAD_ERROR else "soon"
     gr.HTML(f"""<div class="page-head"><h2>🧬 PBMC SLE Classification</h2>
-      <p>Classify a donor as lupus (SLE) or healthy from blood single-cell RNA-seq, and see which cells drove it.
+      <p>Classify a blood sample as healthy or a lupus (SLE) subtype from single-cell RNA-seq, and see which cells drove it.
       <span class="pill {pill}">{status}</span></p>{github_link("pbmc_sle_classification")}</div>""")
     if LOAD_ERROR:
         gr.HTML(f"<div class='banner'>The model has not been uploaded to <code>{MODEL_REPO}</code> yet, so "

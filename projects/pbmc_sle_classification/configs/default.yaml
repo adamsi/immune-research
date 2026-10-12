@@ -3,8 +3,10 @@ data:
   collection_doi: 10.1126/science.abf1970   # Perez et al. 2022, Science
   raw: data/raw/perez2022.h5ad
   processed: data/processed/pbmc.h5ad        # after QC, normalisation, HVGs
-  represented: data/processed/pbmc_rep.h5ad  # + scVI latent, cell types, UMAP
-  max_cells_per_donor: 500    # subsample to fit in 12 GB RAM; every donor is kept
+  represented: data/processed/pbmc_rep.h5ad  # + scVI latent, UMAP, endotype labels
+  max_cells_per_sample: 500   # subsample to fit in 12 GB RAM; every sample is kept
+  sample_key: sample_uuid     # one bag per blood sample (some patients were sampled at flare and after treatment)
+  donor_key: donor_id         # CV folds are split by donor, so a patient's samples never sit on both sides
   batch_key: auto             # auto = first of Processing_Cohort / batch_cov / batch / pool present
   sle_label: systemic lupus erythematosus
 
@@ -12,33 +14,56 @@ qc:
   min_genes: 200
   max_pct_mt: 15
   min_cells_per_gene: 3
-  n_top_genes: 2000
+  platelet_genes: [PF4, PPBP, GNG11, CAVIN2, SDPR]   # Perez: drop cells with > 1 count of these (SDPR = CAVIN2)
+  max_platelet_counts: 1
+  n_top_genes: 5000           # Perez used Scanpy's cutoff-based default (a few thousand); 2k was the old setting
+
+labels:
+  # Perez's manual annotation (markers + CITE-seq): 14 lymphoid subtypes in ct_cov, broad types elsewhere
+  fine: [ct_cov, author_cell_type]   # first non-missing value per cell -> obs["cell_type"]
+  celltypist_max_cells: 1500         # per cell type, to train the CellTypist model the demo uses on new donors
 
 represent:
   n_latent: 30
+  n_hidden: 128
+  n_layers: 1
+  gene_likelihood: nb         # negative binomial: the usual choice for UMI counts
+  continuous_covariates: [pct_counts_mt]   # Perez regressed out % mito; scVI takes it in the decoder
   scvi_epochs: null           # null = scvi-tools default for the dataset size
-  celltypist_model: Immune_All_Low.pkl
+
+endotypes:
+  k: auto                     # number of SLE subtypes; auto = best silhouette in k_range with stable clusters
+  k_range: [2, 5]
+  min_size: 10                # smallest allowed subtype, in samples
+  n_boot: 50                  # bootstrap resamples to measure cluster stability (ARI)
+  ifn_genes: [IFI27, IFI44L, ISG15, MX1, RSAD2, IFI6, EPSTI1, IFIT1, IFIT3, OAS1]
 
 model:
   d: 128
   d_att: 64
+  n_heads: 4
   dropout: 0.3
+  composition_input: true     # feed the sample's cell-type abundance (CLR) into the MIL head
 
 train:
-  epochs: 30
-  n_sub: 500           # cells sampled per donor per epoch (augmentation + speed)
+  epochs: 40
+  n_sub: 500           # cells sampled per bag per epoch (augmentation + speed)
   lr: 0.001
-  weight_decay: 0.0001
+  weight_decay: 0.01   # AdamW
+  label_smoothing: 0.05
   n_splits: 5
-  n_repeats: 1
   seed: 0
-  baseline_C: 0.1      # inverse L2 strength of the pseudobulk logistic regression
+  baseline_C: 0.1      # inverse strength of the elastic-net logistic regression
+  baseline_l1_ratio: 0.5   # Perez: elastic net, saga, l1_ratio 0.5
+  baseline_lineages: [T4, T8, NK, B, cM, ncM]   # cell-type-resolved pseudobulk blocks
+  baseline_genes_per_lineage: 1000             # most variable HVGs kept per block
+  cohort_cv: true      # also train on all cohorts but one and test on the held-out cohort
 
 eval:
   n_boot: 1000
   de_top_celltypes: 5
   min_cells_de: 10
-  n_examples: 3
+  n_examples: 4
   example_cells: 800
 
 paths:

@@ -1,7 +1,8 @@
 """Numpy-only inference for the trained AttentionMIL, so the demo app does not need PyTorch.
 
-Weights come from model.npz, written by projects/cart_responder/train.py.
-The forward pass mirrors shared/mil_torch.py exactly; dropout is the identity at inference.
+Weights come from model.npz, written by each project's train.py. The forward pass mirrors
+shared/mil_torch.py exactly (dropout is the identity at inference). The number of heads, classes and
+extra bag-level features is read from the weight shapes, so old single-head binary weights still work.
 """
 import numpy as np
 
@@ -15,13 +16,21 @@ def _sigmoid(v):
     return 1.0 / (1.0 + np.exp(-v))
 
 
-def predict(p: dict, x: np.ndarray):
-    """x: (N cells, d_in) float32. Returns (probability, attention weights of shape (N,))."""
+def predict(p: dict, x: np.ndarray, extra: np.ndarray | None = None):
+    """x: (N cells, d_in) float32, extra: (d_extra,) or None.
+    Returns (probability float if binary else class-probability vector, attention (N,) averaged over heads)."""
     h = np.maximum(x @ p["enc.0.weight"].T + p["enc.0.bias"], 0.0)
     gate = np.tanh(h @ p["V.weight"].T + p["V.bias"]) * _sigmoid(h @ p["U.weight"].T + p["U.bias"])
-    s = (gate @ p["w.weight"].T + p["w.bias"]).ravel()
-    s = s - s.max()
-    a = np.exp(s) / np.exp(s).sum()
-    z = a @ h
-    prob = float(_sigmoid(z @ p["head.weight"].T + p["head.bias"]).ravel()[0])
-    return prob, a.astype(np.float32)
+    s = (gate @ p["w.weight"].T + p["w.bias"]).T                  # (heads, N)
+    s = s - s.max(axis=1, keepdims=True)
+    a = np.exp(s) / np.exp(s).sum(axis=1, keepdims=True)
+    z = (a @ h).ravel()
+    if extra is not None:
+        z = np.concatenate([z, np.asarray(extra, dtype=np.float32)])
+    out = z @ p["head.weight"].T + p["head.bias"]
+    if out.shape[0] == 1:
+        prob = float(_sigmoid(out)[0])
+    else:
+        e = np.exp(out - out.max())
+        prob = (e / e.sum()).astype(np.float32)
+    return prob, a.mean(0).astype(np.float32)
