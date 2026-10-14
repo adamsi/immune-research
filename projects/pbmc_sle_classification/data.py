@@ -1,9 +1,13 @@
-"""Step 1: download the Perez 2022 lupus PBMC atlas, subsample, QC, normalise, pick HVGs, report batches.
+"""Step 1: download the Perez 2022 lupus PBMC atlas, subsample, QC, cell labels, normalise, pick HVGs, report batches.
+
+Follows the paper where it states its choices: platelet removal by marker counts, Perez's manual cell-type
+labels (markers + CITE-seq; 14 lymphoid subtypes + broad myeloid types), and a larger HVG set.
 
 Input : configs/default.yaml
 Output: data/raw/perez2022.h5ad          the original CELLxGENE file (large, downloaded once)
-        data/processed/pbmc.h5ad         raw counts in layers["counts"], log-normalised X, HVG flags
-        results/batch_report.csv         donors per batch x disease (single-disease batches are confounded)
+        data/processed/pbmc.h5ad         raw counts in layers["counts"], log-normalised X, HVG flags,
+                                         obs["cell_type_fine"] (Perez labels) and obs["lineage"] (broad type)
+        results/batch_report.csv         samples per batch x disease state (single-disease batches are confounded)
 """
 import gc
 import os
@@ -47,8 +51,8 @@ def download(cfg: dict) -> str:
     return dest
 
 
-def load_subsample(src: str, max_cells: int, seed: int, block: int = 25_000) -> ad.AnnData:
-    """Keep up to max_cells random cells per donor and load only their raw counts.
+def load_subsample(src: str, max_cells: int, seed: int, group_key: str = "sample_uuid", block: int = 25_000) -> ad.AnnData:
+    """Keep up to max_cells random cells per sample and load only their raw counts.
 
     The file is streamed: obs is read first, then the count matrix (raw/X if present, as on
     CELLxGENE, else X) is read `block` rows at a time keeping only the picked rows, so peak RAM
@@ -57,7 +61,7 @@ def load_subsample(src: str, max_cells: int, seed: int, block: int = 25_000) -> 
     with h5py.File(src, "r") as f:
         obs = read_elem(f["obs"])
         rng = np.random.default_rng(seed)
-        groups = obs.groupby("donor_id", observed=True).indices
+        groups = obs.groupby(group_key if group_key in obs else "donor_id", observed=True).indices
         idx = np.sort(np.concatenate([rng.choice(ix, min(len(ix), max_cells), replace=False) for ix in groups.values()]))
         has_raw = "raw" in f
         X = sparse_dataset(f["raw/X"] if has_raw else f["X"])
@@ -79,7 +83,9 @@ def load_subsample(src: str, max_cells: int, seed: int, block: int = 25_000) -> 
     adata.var["ensembl_id"] = adata.var_names
     adata.var_names = adata.var["feature_name"].astype(str).values   # gene symbols, needed by CellTypist
     adata.var_names_make_unique()
-    adata.obs["donor_id"] = adata.obs["donor_id"].astype(str)
+    for c in ("donor_id", group_key):
+        if c in adata.obs:
+            adata.obs[c] = adata.obs[c].astype(str)
     return adata
 
 
@@ -91,23 +97,43 @@ def pick_batch_key(obs: pd.DataFrame, setting: str) -> str | None:
 
 
 def qc(adata: ad.AnnData, q: dict) -> ad.AnnData:
-    """Drop near-empty cells and likely dying cells (high mitochondrial fraction), then rare genes."""
+    """Drop near-empty cells, likely dying cells (high mitochondrial fraction) and platelet-containing
+    droplets (Perez: > 1 count of PF4, PPBP, GNG11, SDPR/CAVIN2), then rare genes."""
     adata.var["mt"] = adata.var_names.str.startswith("MT-")
     sc.pp.calculate_qc_metrics(adata, qc_vars=["mt"], percent_top=None, log1p=False, inplace=True)
     keep = (adata.obs["n_genes_by_counts"] >= q["min_genes"]) & (adata.obs["pct_counts_mt"] < q["max_pct_mt"])
+    plt_genes = [g for g in q.get("platelet_genes", []) if g in adata.var_names]
+    if plt_genes:
+        plt_counts = np.asarray(adata[:, plt_genes].X.sum(1)).ravel()
+        is_plt = plt_counts > q["max_platelet_counts"]
+        print(f"  platelet filter ({', '.join(plt_genes)}): {is_plt.sum():,} cells")
+        keep &= ~is_plt
     print(f"  QC keeps {keep.sum():,} of {len(keep):,} cells")
     adata._inplace_subset_obs(keep.values)   # in place: avoids a second copy of the matrix
     sc.pp.filter_genes(adata, min_cells=q["min_cells_per_gene"])
     return adata
 
 
-def batch_report(obs: pd.DataFrame, batch_key: str | None) -> pd.DataFrame:
-    """Donors per batch x disease. A batch holding only one disease is confounded with the label."""
+def fine_labels(obs: pd.DataFrame, columns: list[str]) -> pd.Series:
+    """Perez's manual labels: the first non-missing of `columns` per cell (ct_cov has lymphoid subtypes, NaN for
+    myeloid cells, where author_cell_type has the broad type). Falls back to CELLxGENE's cell_type."""
+    out = pd.Series(np.nan, index=obs.index, dtype=object)
+    for c in [c for c in columns if c in obs] + ["cell_type"]:
+        v = obs[c].astype(object).where(obs[c].notna())
+        v = v.where(~v.astype(str).isin(["nan", "na", "unknown", ""]))
+        out = out.fillna(v)
+    return out.fillna("unknown").astype(str)
+
+
+def batch_report(obs: pd.DataFrame, batch_key: str | None, sample_key: str) -> pd.DataFrame:
+    """Samples per batch x disease (and disease state). A batch holding only one disease is confounded with the label."""
     if batch_key is None:
         return pd.DataFrame()
-    donors = obs[["donor_id", batch_key, "disease"]].drop_duplicates("donor_id")
-    table = pd.crosstab(donors[batch_key], donors["disease"])
+    s = obs.drop_duplicates(sample_key)
+    table = pd.crosstab(s[batch_key], s["disease"])
     table["single_disease"] = (table > 0).sum(axis=1) == 1
+    if "disease_state" in s:
+        table = table.join(pd.crosstab(s[batch_key], s["disease_state"]).add_prefix("state_"))
     return table
 
 
@@ -120,14 +146,22 @@ def main() -> None:
     print("[data] 1/4 download")
     src = download(cfg)
     print("[data] 2/4 subsample + raw counts")
-    adata = load_subsample(src, d["max_cells_per_donor"], cfg["train"]["seed"])
+    sample_key = d["sample_key"]
+    adata = load_subsample(src, d["max_cells_per_sample"], cfg["train"]["seed"], sample_key)
+    if sample_key not in adata.obs:   # files without a sample column: one sample per donor
+        adata.obs[sample_key] = adata.obs[d["donor_key"]].astype(str)
     batch_key = pick_batch_key(adata.obs, d["batch_key"])
     adata.uns["batch_key"] = batch_key or ""
-    print(f"  {adata.n_obs:,} cells x {adata.n_vars:,} genes, {adata.obs['donor_id'].nunique()} donors, batch_key={batch_key}")
+    print(f"  {adata.n_obs:,} cells x {adata.n_vars:,} genes, {adata.obs[sample_key].nunique()} samples from "
+          f"{adata.obs[d['donor_key']].nunique()} donors, batch_key={batch_key}")
 
-    print("[data] 3/4 QC + batch report")
+    print("[data] 3/4 QC, Perez cell labels, batch report")
     adata = qc(adata, q)
-    report = batch_report(adata.obs, batch_key)
+    adata.obs["cell_type_fine"] = fine_labels(adata.obs, cfg["labels"]["fine"])
+    adata.obs["lineage"] = (adata.obs["author_cell_type"].astype(str) if "author_cell_type" in adata.obs
+                            else adata.obs["cell_type_fine"])
+    print(adata.obs["cell_type_fine"].value_counts().to_string())
+    report = batch_report(adata.obs, batch_key, sample_key)
     report.to_csv(path(os.path.join(cfg["paths"]["results"], "batch_report.csv")))
     if len(report):
         print(report)

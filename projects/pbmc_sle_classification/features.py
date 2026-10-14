@@ -2,7 +2,10 @@
 
 Everything here runs on numpy/pandas/scikit-learn only, so the Hugging Face Space can embed and classify
 a new patient without PyTorch, scvi-tools or CellTypist installed:
-  - pseudobulk / log_cpm                       features for the logistic-regression baseline
+  - sample_table                               one row per blood sample (donor, SLE, state, batch, ancestry)
+  - pseudobulk / log_cpm                       summed counts per sample, normalised
+  - clr / composition                          cell-type abundance on a log-ratio scale (MIL head + baseline)
+  - baseline_features                          per-lineage pseudobulk + abundance for the elastic-net baseline
   - encode_scvi                                the trained scVI encoder (counts -> 30-d latent), exported to numpy
   - predict_celltypes                          the CellTypist classifier, exported to numpy
 """
@@ -16,10 +19,25 @@ def to_dense(X) -> np.ndarray:
 
 
 def donor_labels(obs: pd.DataFrame, sle_label: str, donor_key: str = "donor_id") -> pd.Series:
-    """One label per donor, 1 = SLE and 0 = healthy, indexed by donor id (str)."""
+    """One label per donor (or per sample, with donor_key = the sample column), 1 = SLE and 0 = healthy, indexed by id (str)."""
     d = obs[[donor_key, "disease"]].drop_duplicates(donor_key)
     return pd.Series((d["disease"].astype(str) == sle_label).astype(int).values,
                      index=d[donor_key].astype(str).values, name="y")
+
+
+def sample_table(obs: pd.DataFrame, sample_key: str, donor_key: str, batch_key: str | None, sle_label: str) -> pd.DataFrame:
+    """One row per sample: donor, SLE flag, disease state, batch, ancestry and cell count, indexed by sample id (str)."""
+    cols = [c for c in (donor_key, "disease", "disease_state", batch_key, "self_reported_ethnicity", "sex") if c and c in obs]
+    t = obs[[sample_key] + cols].drop_duplicates(sample_key).set_index(sample_key)
+    t.index = t.index.astype(str)
+    t = t.rename(columns={donor_key: "donor", batch_key: "batch", "self_reported_ethnicity": "ancestry"} if batch_key else
+                 {donor_key: "donor", "self_reported_ethnicity": "ancestry"})
+    t["sle"] = (t["disease"].astype(str) == sle_label).astype(int)
+    t["n_cells"] = obs[sample_key].astype(str).value_counts().reindex(t.index).values
+    for c in t.columns:
+        if t[c].dtype.name == "category":
+            t[c] = t[c].astype(str)
+    return t
 
 
 def pseudobulk(X, groups) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -48,25 +66,70 @@ def log_normalize(X, totals=None, target: float = 1e4) -> np.ndarray:
 
 def export_scvi_encoder(vae) -> dict:
     """Pull the weights needed for z = encoder(counts) out of a trained scvi.model.SCVI.
-    Valid for the default architecture used here: 1 hidden layer, batch norm, encode_covariates=False."""
+    Valid for scVI's default encoder (batch norm, encode_covariates=False) with any number of hidden layers."""
     sd = {k: v.detach().cpu().numpy() for k, v in vae.module.state_dict().items()}
-    pre = "z_encoder.encoder.fc_layers.Layer 0."
-    return {
-        "W1": sd[pre + "0.weight"], "b1": sd[pre + "0.bias"],
-        "bn_mean": sd[pre + "1.running_mean"], "bn_var": sd[pre + "1.running_var"],
-        "bn_w": sd[pre + "1.weight"], "bn_b": sd[pre + "1.bias"],
-        "W_mu": sd["z_encoder.mean_encoder.weight"], "b_mu": sd["z_encoder.mean_encoder.bias"],
-    }
+    out = {"W_mu": sd["z_encoder.mean_encoder.weight"], "b_mu": sd["z_encoder.mean_encoder.bias"]}
+    i = 0
+    while f"z_encoder.encoder.fc_layers.Layer {i}.0.weight" in sd:
+        pre, sfx = f"z_encoder.encoder.fc_layers.Layer {i}.", "" if i == 0 else str(i + 1)
+        out.update({f"W{i + 1}": sd[pre + "0.weight"], f"b{i + 1}": sd[pre + "0.bias"],
+                    f"bn_mean{sfx}": sd[pre + "1.running_mean"], f"bn_var{sfx}": sd[pre + "1.running_var"],
+                    f"bn_w{sfx}": sd[pre + "1.weight"], f"bn_b{sfx}": sd[pre + "1.bias"]})
+        i += 1
+    return out
 
 
 def encode_scvi(enc: dict, counts) -> np.ndarray:
     """Raw counts (cells x model genes, in genes.txt order) -> scVI latent mean (cells x n_latent).
-    Mirrors scVI inference: log1p input, Linear, BatchNorm (eval, eps 1e-3), ReLU, Linear."""
-    x = np.log1p(to_dense(counts))
-    h = x @ enc["W1"].T + enc["b1"]
-    h = (h - enc["bn_mean"]) / np.sqrt(enc["bn_var"] + 1e-3) * enc["bn_w"] + enc["bn_b"]
-    h = np.maximum(h, 0.0)
+    Mirrors scVI inference: log1p input, then per layer Linear, BatchNorm (eval, eps 1e-3), ReLU; then Linear."""
+    h = np.log1p(to_dense(counts))
+    i = 1
+    while f"W{i}" in enc:
+        sfx = "" if i == 1 else str(i)
+        h = h @ enc[f"W{i}"].T + enc[f"b{i}"]
+        h = (h - enc[f"bn_mean{sfx}"]) / np.sqrt(enc[f"bn_var{sfx}"] + 1e-3) * enc[f"bn_w{sfx}"] + enc[f"bn_b{sfx}"]
+        h = np.maximum(h, 0.0)
+        i += 1
     return (h @ enc["W_mu"].T + enc["b_mu"]).astype(np.float32)
+
+
+# ---------------------------------------------------------------- cell-type abundance and baseline features
+
+def clr(frac: np.ndarray, eps: float = 1e-3) -> np.ndarray:
+    """Centred log-ratio of compositions (rows sum to 1): log(fraction) minus the row mean of logs.
+    Fractions of one sample are not independent (they sum to 1); CLR puts them on an unconstrained scale."""
+    lf = np.log(np.asarray(frac, dtype=np.float64) + eps)
+    return (lf - lf.mean(axis=-1, keepdims=True)).astype(np.float32)
+
+
+def composition(cell_types, classes) -> np.ndarray:
+    """CLR abundance vector of one sample over a fixed list of cell types (types outside the list are ignored)."""
+    ct = pd.Series(np.asarray(cell_types).astype(str))
+    frac = ct.value_counts().reindex(list(classes), fill_value=0).to_numpy(np.float64)
+    return clr(frac / max(frac.sum(), 1))
+
+
+def composition_matrix(cell_types, groups, classes) -> tuple[np.ndarray, np.ndarray]:
+    """CLR abundance per group (sample). Returns (group names, groups x types)."""
+    df = pd.crosstab(np.asarray(groups).astype(str), np.asarray(cell_types).astype(str)).reindex(columns=list(classes), fill_value=0)
+    frac = df.to_numpy(np.float64) / np.maximum(df.sum(1).to_numpy()[:, None], 1)
+    return df.index.to_numpy(), clr(frac)
+
+
+def baseline_features(counts, cell_type, spec: dict) -> np.ndarray:
+    """Features of one sample for the elastic-net baseline (Perez-style, plus abundance):
+    per lineage, log-CPM of that lineage's pseudobulk over its selected genes; then the CLR cell-type abundance.
+    counts: cells x model genes (genes.txt order); cell_type: per-cell fine type; spec: baseline_features.json
+    (lineages, gene_idx per lineage, cell_types, lineage_of = fine type -> lineage)."""
+    cell_type = np.asarray(cell_type).astype(str)
+    lineage = np.array([spec["lineage_of"].get(c, "other") for c in cell_type])
+    parts = []
+    for lin, gidx in zip(spec["lineages"], spec["gene_idx"]):
+        m = lineage == lin
+        pb = np.asarray(counts[m].sum(0)).ravel()[None, :] if m.any() else np.zeros((1, counts.shape[1]))
+        parts.append(log_cpm(pb)[0, gidx])
+    parts.append(composition(cell_type, spec["cell_types"]))
+    return np.concatenate(parts).astype(np.float32)
 
 
 # ---------------------------------------------------------------- CellTypist

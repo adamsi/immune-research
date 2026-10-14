@@ -162,6 +162,9 @@ i.hc, .legend i.hc { background: #10b981; }
 .bp-row { display: flex; align-items: center; gap: 8px; height: 14px; margin: 2px 0; }
 .bp-row i { display: block; height: 9px; border-radius: 99px; flex: none; max-width: calc(100% - 48px); }
 .bp-row b { font-size: 12px; font-weight: 600; color: var(--body-text-color-subdued); }
+.bp-name small { font-weight: 400; color: var(--body-text-color-subdued); margin-left: 6px; }
+.card .classes { text-align: left; margin: 0 auto 16px; max-width: 420px; }
+.ecard + .ecard { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color-primary); }
 .de { padding: 10px 0; border-top: 1px solid var(--border-color-primary); }
 .de:first-of-type { border-top: 0; padding-top: 0; }
 .de-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; margin-bottom: 6px; }
@@ -172,6 +175,7 @@ i.hc, .legend i.hc { background: #10b981; }
         border-radius: 8px; white-space: nowrap; }
 .chip.up { color: #be123c; background: #ffe4e6; }
 .chip.down { color: #475569; background: #e2e8f0; }
+.chip.ct { color: #1d4ed8; background: #dbeafe; font-family: inherit; }
 .bt { display: grid; grid-template-columns: minmax(0, 150px) 1fr auto; align-items: center; gap: 10px; margin: 8px 0; }
 .bt-name { font-size: 14px; font-weight: 550; }
 .bt-name em { font-style: normal; font-size: 11px; font-weight: 600; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 1px 6px; margin-left: 4px; white-space: nowrap; }
